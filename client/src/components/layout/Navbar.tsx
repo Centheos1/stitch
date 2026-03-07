@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/hooks/use-cart";
-import { ShoppingBag, HeartHandshake, Menu, X } from "lucide-react";
+import { ShoppingBag, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import stitchLogo from "@assets/Screenshot_2026-03-08_at_10.19.25_am_1772925583025.png";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -23,11 +24,13 @@ export function Navbar() {
           
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground group-hover:rotate-12 transition-transform shadow-lg shadow-primary/20">
-                <HeartHandshake className="h-6 w-6" />
-              </div>
-              <span className="font-display text-2xl font-bold rainbow-text">STI</span>
+            <Link href="/" className="flex items-center gap-3 group">
+              <img 
+                src={stitchLogo} 
+                alt="STITCH Logo" 
+                className="h-12 w-auto group-hover:scale-110 transition-transform"
+              />
+              <span className="font-display text-2xl font-bold rainbow-text">STITCH</span>
             </Link>
           </div>
 
