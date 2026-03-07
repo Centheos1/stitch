@@ -1,38 +1,75 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { eq, ilike, and } from "drizzle-orm";
+import {
+  products, orders, orderItems,
+  type Product, type InsertProduct, type UpdateProductRequest,
+  type Order, type InsertOrder, type OrderItem
+} from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getProducts(category?: string, search?: string): Promise<Product[]>;
+  getProduct(id: number): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: number, updates: UpdateProductRequest): Promise<Product>;
+  deleteProduct(id: number): Promise<void>;
+  
+  createOrder(order: InsertOrder, items: { productId: number, quantity: number, priceAtTime: number }[]): Promise<Order>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getProducts(category?: string, search?: string): Promise<Product[]> {
+    const conditions = [];
+    if (category) {
+      conditions.push(eq(products.category, category));
+    }
+    if (search) {
+      conditions.push(ilike(products.name, `%${search}%`));
+    }
+    
+    if (conditions.length > 0) {
+      return await db.select().from(products).where(and(...conditions));
+    } else {
+      return await db.select().from(products);
+    }
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getProduct(id: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [newProduct] = await db.insert(products).values(product).returning();
+    return newProduct;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async updateProduct(id: number, updates: UpdateProductRequest): Promise<Product> {
+    const [updated] = await db.update(products).set(updates).where(eq(products.id, id)).returning();
+    return updated;
+  }
+
+  async deleteProduct(id: number): Promise<void> {
+    await db.delete(products).where(eq(products.id, id));
+  }
+
+  async createOrder(order: InsertOrder, items: { productId: number, quantity: number, priceAtTime: number }[]): Promise<Order> {
+    return await db.transaction(async (tx) => {
+      const [newOrder] = await tx.insert(orders).values(order).returning();
+      
+      const itemsToInsert = items.map(item => ({
+        orderId: newOrder.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        priceAtTime: item.priceAtTime
+      }));
+      
+      if (itemsToInsert.length > 0) {
+        await tx.insert(orderItems).values(itemsToInsert);
+      }
+      
+      return newOrder;
+    });
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
