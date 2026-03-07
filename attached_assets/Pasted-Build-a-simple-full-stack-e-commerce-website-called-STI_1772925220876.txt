@@ -1,0 +1,142 @@
+Build a simple full-stack e-commerce website called **STITCH**.
+
+STITCH sells small handmade items including:
+
+* felt animals
+* embroidered items
+* knitted items
+* handmade bags
+* hair clips
+* Christmas decorations
+
+The website should feel **creative, colourful, handmade and friendly**, similar to a small craft shop.
+
+---
+
+TECH STACK
+
+Frontend:
+
+* React
+* Tailwind CSS
+* Mobile responsive design
+
+Backend:
+
+* Node.js with Express
+
+Database:
+
+* SQLite database
+
+---
+
+PAGES
+
+Create the following pages:
+
+1. Home page
+2. Shop page
+3. Product detail page
+4. Cart page
+5. Checkout page
+6. About page
+7. Contact page
+
+---
+
+FEATURES
+
+Shop functionality:
+
+* Product grid with image, name and price
+* Product detail pages
+* Add to cart
+* Shopping cart with quantity controls
+* Remove items from cart
+* Checkout form (name, email, shipping address)
+* Orders saved to the database
+
+Product categories:
+
+* Animals
+* Bags
+* Hair Clips
+* Christmas Decorations
+* Other Handmade Items
+
+Admin features:
+
+* Admin route to add new products
+* Edit products
+* Delete products
+* Upload product images
+
+---
+
+DESIGN STYLE
+
+The visual style should feel **handmade, playful and colourful**.
+
+Colour palette (important):
+
+* Red
+* Orange
+* Warm Yellow
+* Green
+* Blue
+* Purple
+
+Use the palette like a **soft rainbow theme**, for example:
+
+* coloured buttons
+* category labels
+* accents and highlights
+* hover effects
+
+The main background should stay **light or cream** so products stand out.
+
+Design goals:
+
+* warm
+* friendly
+* craft-inspired
+* clean and easy to use
+
+Typography:
+
+* rounded, friendly fonts
+* clear readable text
+
+---
+
+HOMEPAGE SECTIONS
+
+The homepage should include:
+
+Hero section:
+
+* STITCH logo/title
+* tagline: "Handmade Felt, Embroidered & Knitted Creations"
+
+Featured products section
+
+Product categories section
+
+Short "About STITCH" section explaining it is a handmade craft shop
+
+Call-to-action button: "Shop Now"
+
+---
+
+PROJECT STRUCTURE
+
+Generate a complete project including:
+
+* frontend React app
+* backend Express server
+* SQLite database setup
+* API routes for products and orders
+* instructions for running the project on Replit
+
+Make the code clean and easy to extend later (for payments and shipping).
