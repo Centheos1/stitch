@@ -16,8 +16,8 @@ export default function Contact() {
             </div>
             <h3 className="font-display text-2xl font-bold mb-2">Email Us</h3>
             <p className="text-muted-foreground mb-4">For questions, custom orders, or just to say hi!</p>
-            <a href="mailto:hello@stihandmade.com" className="font-bold text-xl text-primary hover:underline">
-              hello@stihandmade.com
+            <a href="mailto:hello@stitchhandmade.com" className="font-bold text-xl text-primary hover:underline">
+              hello@stitchhandmade.com
             </a>
           </div>
 
@@ -28,7 +28,7 @@ export default function Contact() {
             <h3 className="font-display text-2xl font-bold mb-2">Social Magic</h3>
             <p className="text-muted-foreground mb-4">Follow our crafting journey and see behind the scenes.</p>
             <p className="font-bold text-xl text-accent-foreground text-green-600 cursor-pointer hover:underline">
-              @stihandmade
+              @stitchhandmade
             </p>
           </div>
         </div>

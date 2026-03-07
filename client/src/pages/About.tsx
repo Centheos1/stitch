@@ -11,7 +11,7 @@ export default function About() {
           
           <div className="prose prose-lg mx-auto text-muted-foreground relative z-10">
             <p className="lead text-2xl font-medium text-foreground mb-8">
-              Welcome to STI, where every stitch, cut, and bead is placed with love.
+              Welcome to STITCH, where every stitch, cut, and bead is placed with love.
             </p>
             
             <p className="mb-6">
@@ -19,7 +19,7 @@ export default function About() {
             </p>
             
             <p className="mb-6">
-              Today, STI represents a colorful collection of handmade bags, quirky hair clips, festive decorations, and our signature stuffed animals. We believe that the things you surround yourself with should bring you joy and a splash of color.
+              Today, STITCH represents a colorful collection of handmade bags, quirky hair clips, festive decorations, and our signature stuffed animals. We believe that the things you surround yourself with should bring you joy and a splash of color.
             </p>
             
             <div className="my-12 p-8 bg-secondary/10 rounded-3xl border border-secondary/30">

@@ -1,5 +1,5 @@
-import { HeartHandshake } from "lucide-react";
 import { Link } from "wouter";
+import stitchLogo from "@assets/Screenshot_2026-03-08_at_10.19.25_am_1772925583025.png";
 
 export function Footer() {
   return (
@@ -8,10 +8,12 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <HeartHandshake className="h-5 w-5" />
-              </div>
-              <span className="font-display text-xl font-bold text-foreground">STI Handmade</span>
+              <img 
+                src={stitchLogo} 
+                alt="STITCH Logo" 
+                className="h-8 w-auto"
+              />
+              <span className="font-display text-xl font-bold text-foreground">STITCH</span>
             </Link>
             <p className="text-muted-foreground max-w-sm">
               Bringing joy through colorful, craft-inspired handmade items. Every piece is made with love, care, and a sprinkle of magic.
@@ -39,7 +41,7 @@ export function Footer() {
         </div>
         
         <div className="mt-12 pt-8 border-t border-border text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} STI Handmade. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} STITCH. All rights reserved.</p>
           <div className="mt-2 flex justify-center gap-4">
             <Link href="/admin" className="text-sm hover:text-primary transition-colors">Admin Portal</Link>
           </div>
