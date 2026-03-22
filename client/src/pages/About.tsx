@@ -19,32 +19,26 @@ export default function About() {
               My products are all handmade, with love and care put into every stitch. By making them this way, every item is made with character and a complete one-of-a-kind creation. From the very beginning, STITCH has been about having fun making quality products for your family to enjoy using.
             </p>
 
-            <div className="my-10 p-8 bg-primary/5 rounded-3xl border border-primary/20">
-              <h3 className="font-display text-2xl font-bold text-foreground mb-4">Toy Animals</h3>
-              <p className="mb-4">The toy animals are great for young kids as they are:</p>
-              <ul className="list-disc list-inside space-y-2 mb-4">
-                <li>Soft and colourful</li>
-                <li>Have textures small hands will enjoy</li>
-                <li>Simple to encourage children to use their imaginations</li>
-              </ul>
-              <p>
-                They are also good for groups such as Steiner playgroups to use in stories and for the children to play with.
-              </p>
-            </div>
+            <h3 className="font-display text-2xl font-bold text-foreground mb-4 mt-8">Toy Animals</h3>
+            <p className="mb-4">The toy animals are great for young kids as they are:</p>
+            <ul className="list-disc list-inside space-y-2 mb-4">
+              <li>Soft and colourful</li>
+              <li>Have textures small hands will enjoy</li>
+              <li>Simple to encourage children to use their imaginations</li>
+            </ul>
+            <p className="mb-8">
+              They are also good for groups such as Steiner playgroups to use in stories and for the children to play with.
+            </p>
 
-            <div className="my-10 p-8 bg-secondary/10 rounded-3xl border border-secondary/30">
-              <h3 className="font-display text-2xl font-bold text-foreground mb-4">Hair Clips</h3>
-              <p>
-                Our hair clips are comfortable to wear and add an individual finish and flair to your outfit. No two are the same.
-              </p>
-            </div>
+            <h3 className="font-display text-2xl font-bold text-foreground mb-4">Hair Clips</h3>
+            <p className="mb-8">
+              Our hair clips are comfortable to wear and add an individual finish and flair to your outfit. No two are the same.
+            </p>
 
-            <div className="my-10 p-8 bg-accent/10 rounded-3xl border border-accent/30">
-              <h3 className="font-display text-2xl font-bold text-foreground mb-4">Felt Decorations</h3>
-              <p>
-                The adorable felt decorations we have at STITCH are perfect for adding an individual touch to your home, personalising your decorating. Whether it's for a Christmas tree or a bedroom it will be special and unique.
-              </p>
-            </div>
+            <h3 className="font-display text-2xl font-bold text-foreground mb-4">Felt Decorations</h3>
+            <p className="mb-8">
+              The adorable felt decorations we have at STITCH are perfect for adding an individual touch to your home, personalising your decorating. Whether it's for a Christmas tree or a bedroom it will be special and unique.
+            </p>
 
             <p className="mb-6">
               Children will love these handmade items as their toy is uniquely theirs, that they will have an individual connection with.
