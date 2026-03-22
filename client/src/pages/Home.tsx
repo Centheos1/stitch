@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useProducts } from "@/hooks/use-products";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Heart, Gift } from "lucide-react";
+import { ArrowRight, Sparkles, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Home() {
@@ -60,15 +60,6 @@ export default function Home() {
                 className="w-full h-auto rounded-[3rem] shadow-2xl border-4 border-white rotate-3"
               />
               
-              <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-3xl shadow-xl border-2 border-border flex items-center gap-4 animate-bounce hover:animate-none">
-                <div className="bg-red-100 p-3 rounded-2xl text-red-500">
-                  <Heart className="h-8 w-8 fill-current" />
-                </div>
-                <div>
-                  <p className="font-bold font-display text-xl">100%</p>
-                  <p className="text-sm text-muted-foreground font-semibold">Handcrafted</p>
-                </div>
-              </div>
             </motion.div>
 
           </div>
