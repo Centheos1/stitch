@@ -98,6 +98,16 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/login", (req, res) => {
+    const { password } = req.body;
+    const adminPassword = process.env.ADMIN_PASSWORD || "stitch-admin";
+    if (password === adminPassword) {
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ message: "Incorrect password" });
+    }
+  });
+
   // Seed DB on startup
   seedDatabase().catch(console.error);
 

@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2 } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import type { ProductInput, Product } from "@shared/routes";
 
-// Extend base schema for form to handle price parsing correctly
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
@@ -19,7 +19,68 @@ const productFormSchema = z.object({
   imageUrl: z.string().url("Must be a valid image URL"),
 });
 
-export default function Admin() {
+const SESSION_KEY = "stitch_admin_auth";
+
+function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/login", { password });
+      sessionStorage.setItem(SESSION_KEY, "true");
+      onSuccess();
+    } catch {
+      setError("Incorrect password. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl border-2 border-border p-10">
+        <div className="flex flex-col items-center mb-8">
+          <div className="h-16 w-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center mb-4">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h1 className="font-display text-2xl font-bold">Admin Portal</h1>
+          <p className="text-sm text-muted-foreground mt-1">Enter your password to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-semibold mb-1 block">Password</label>
+            <Input
+              type="password"
+              className="rounded-xl"
+              placeholder="Enter admin password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              data-testid="input-admin-password"
+              autoFocus
+            />
+            {error && <p className="text-destructive text-sm mt-2">{error}</p>}
+          </div>
+          <Button
+            type="submit"
+            className="w-full rounded-xl h-12"
+            disabled={loading || !password}
+            data-testid="button-admin-login"
+          >
+            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Sign In"}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AdminPortal() {
   const { data: products, isLoading } = useProducts();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -58,9 +119,7 @@ export default function Admin() {
   };
 
   const onSubmit = (data: z.infer<typeof productFormSchema>) => {
-    // Convert price string (dollars) to integer (cents)
     const price = Math.round(parseFloat(data.priceStr) * 100);
-    
     const payload: ProductInput = {
       name: data.name,
       description: data.description,
@@ -70,13 +129,9 @@ export default function Admin() {
     };
 
     if (editingId) {
-      updateProduct.mutate({ id: editingId, ...payload }, {
-        onSuccess: () => setIsOpen(false)
-      });
+      updateProduct.mutate({ id: editingId, ...payload }, { onSuccess: () => setIsOpen(false) });
     } else {
-      createProduct.mutate(payload, {
-        onSuccess: () => setIsOpen(false)
-      });
+      createProduct.mutate(payload, { onSuccess: () => setIsOpen(false) });
     }
   };
 
@@ -94,44 +149,53 @@ export default function Admin() {
             <p className="text-sm text-muted-foreground">Manage your magical inventory</p>
           </div>
         </div>
-        
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openNew} className="rounded-xl bg-slate-900 hover:bg-slate-800">
-              <Plus className="mr-2 h-4 w-4" /> Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] rounded-3xl border-2 border-border p-8">
-            <DialogHeader>
-              <DialogTitle className="font-display text-2xl">
-                {editingId ? "Edit Item" : "Create New Item"}
-              </DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage/></FormItem>
-                )}/>
-                <FormField control={form.control} name="category" render={({ field }) => (
-                  <FormItem><FormLabel>Category</FormLabel><FormControl><Input className="rounded-xl" placeholder="e.g. Animals, Bags..." {...field} /></FormControl><FormMessage/></FormItem>
-                )}/>
-                <FormField control={form.control} name="priceStr" render={({ field }) => (
-                  <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input className="rounded-xl" placeholder="19.99" {...field} /></FormControl><FormMessage/></FormItem>
-                )}/>
-                <FormField control={form.control} name="imageUrl" render={({ field }) => (
-                  <FormItem><FormLabel>Image URL (Unsplash recommended)</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage/></FormItem>
-                )}/>
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem><FormLabel>Description</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage/></FormItem>
-                )}/>
-                
-                <Button type="submit" className="w-full rounded-xl mt-6 h-12" disabled={isPending}>
-                  {isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "Save Magic"}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-muted-foreground"
+            onClick={() => { sessionStorage.removeItem(SESSION_KEY); window.location.reload(); }}
+          >
+            Sign Out
+          </Button>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openNew} className="rounded-xl bg-slate-900">
+                <Plus className="mr-2 h-4 w-4" /> Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] rounded-3xl border-2 border-border p-8">
+              <DialogHeader>
+                <DialogTitle className="font-display text-2xl">
+                  {editingId ? "Edit Item" : "Create New Item"}
+                </DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="category" render={({ field }) => (
+                    <FormItem><FormLabel>Category</FormLabel><FormControl><Input className="rounded-xl" placeholder="e.g. Animals, Bags..." {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="priceStr" render={({ field }) => (
+                    <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input className="rounded-xl" placeholder="19.99" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="imageUrl" render={({ field }) => (
+                    <FormItem><FormLabel>Image URL</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem><FormLabel>Description</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <Button type="submit" className="w-full rounded-xl mt-6 h-12" disabled={isPending}>
+                    {isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "Save"}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-border overflow-hidden">
@@ -160,10 +224,10 @@ export default function Admin() {
                     <td className="p-4"><span className="px-3 py-1 bg-muted rounded-full text-xs font-bold">{product.category}</span></td>
                     <td className="p-4 font-bold">${(product.price / 100).toFixed(2)}</td>
                     <td className="p-4 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(product)} className="hover:text-blue-600">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)} className="hover:text-red-600" disabled={deleteProduct.isPending}>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)} disabled={deleteProduct.isPending}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
@@ -179,4 +243,16 @@ export default function Admin() {
       </div>
     </div>
   );
+}
+
+export default function Admin() {
+  const [authenticated, setAuthenticated] = useState(
+    sessionStorage.getItem(SESSION_KEY) === "true"
+  );
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
+  }
+
+  return <AdminPortal />;
 }
