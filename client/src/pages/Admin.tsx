@@ -16,7 +16,10 @@ const productFormSchema = z.object({
   description: z.string().min(1, "Description is required"),
   priceStr: z.string().regex(/^\d+(\.\d{1,2})?$/, "Must be a valid price (e.g. 19.99)"),
   category: z.string().min(1, "Category is required"),
-  imageUrl: z.string().url("Must be a valid image URL"),
+  imageUrl: z.string().min(1, "An image is required").refine(
+    (val) => val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://"),
+    "Must be a valid image URL or uploaded file"
+  ),
 });
 
 const SESSION_KEY = "stitch_admin_auth";
