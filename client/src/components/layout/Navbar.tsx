@@ -30,7 +30,7 @@ export function Navbar() {
                 alt="STITCH Logo" 
                 className="h-12 w-auto group-hover:scale-110 transition-transform"
               />
-              <span className="font-display text-2xl font-bold rainbow-text">STITCH</span>
+              <span className="font-display text-2xl font-bold rainbow-text whitespace-nowrap">STITCH</span>
             </Link>
           </div>
 
