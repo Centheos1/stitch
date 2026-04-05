@@ -28,7 +28,7 @@ export function Navbar() {
               <img 
                 src={stitchLogo} 
                 alt="STITCH Logo" 
-                className="h-12 w-auto group-hover:scale-110 transition-transform"
+                className="h-12 w-12 object-cover object-left group-hover:scale-110 transition-transform rounded-xl"
               />
               <span className="font-display text-2xl font-bold rainbow-text whitespace-nowrap">STITCH</span>
             </Link>
