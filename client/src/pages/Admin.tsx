@@ -1,5 +1,5 @@
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { ProductInput, Product } from "@shared/routes";
 
@@ -76,6 +76,70 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           </Button>
         </form>
       </div>
+    </div>
+  );
+}
+
+function ImageUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      onChange(data.url);
+    } catch {
+      alert("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="relative border-2 border-dashed border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors text-center"
+        onClick={() => fileRef.current?.click()}
+        data-testid="upload-image-area"
+      >
+        {value ? (
+          <div className="relative inline-block">
+            <img src={value} alt="Preview" className="h-32 w-auto mx-auto rounded-lg object-cover" />
+            <button
+              type="button"
+              className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-0.5"
+              onClick={(e) => { e.stopPropagation(); onChange(""); }}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="py-4">
+            {uploading ? (
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+            ) : (
+              <>
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Click to upload an image</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, GIF up to 10MB</p>
+              </>
+            )}
+          </div>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      </div>
+      <Input
+        className="rounded-xl text-xs"
+        placeholder="Or paste an image URL…"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }
@@ -183,7 +247,13 @@ function AdminPortal() {
                     <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input className="rounded-xl" placeholder="19.99" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="imageUrl" render={({ field }) => (
-                    <FormItem><FormLabel>Image URL</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Product Image</FormLabel>
+                      <FormControl>
+                        <ImageUploader value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem><FormLabel>Description</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
