@@ -18,39 +18,68 @@ export default function ProductDetail() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragging = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
   const lastPos = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const openLightbox = () => { setLightboxOpen(true); setZoom(1); setPan({ x: 0, y: 0 }); };
-  const closeLightbox = () => setLightboxOpen(false);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    setZoom((z) => Math.min(5, Math.max(1, z - e.deltaY * 0.002)));
-  }, []);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom <= 1) return;
-    dragging.current = true;
-    lastPos.current = { x: e.clientX, y: e.clientY };
+  const openLightbox = () => {
+    setLightboxOpen(true);
+    setZoom(1); zoomRef.current = 1;
+    setPan({ x: 0, y: 0 }); panRef.current = { x: 0, y: 0 };
   };
+  const closeLightbox = useCallback(() => setLightboxOpen(false), []);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragging.current) return;
-    const dx = e.clientX - lastPos.current.x;
-    const dy = e.clientY - lastPos.current.y;
-    lastPos.current = { x: e.clientX, y: e.clientY };
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
-  };
+  // Native wheel listener so we can call preventDefault() (passive:false)
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const next = Math.min(5, Math.max(1, zoomRef.current - e.deltaY * 0.003));
+      zoomRef.current = next;
+      if (next <= 1) { panRef.current = { x: 0, y: 0 }; setPan({ x: 0, y: 0 }); }
+      setZoom(next);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [lightboxOpen]);
 
-  const handleMouseUp = () => { dragging.current = false; };
-
+  // Keyboard close
   useEffect(() => {
     if (!lightboxOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeLightbox(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxOpen]);
+  }, [lightboxOpen, closeLightbox]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomRef.current <= 1) return;
+    e.preventDefault();
+    setIsDragging(true);
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    const next = { x: panRef.current.x + dx, y: panRef.current.y + dy };
+    panRef.current = next;
+    setPan({ ...next });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const stepZoom = useCallback((delta: number) => {
+    const next = Math.min(5, Math.max(1, zoomRef.current + delta));
+    zoomRef.current = next;
+    if (next <= 1) { panRef.current = { x: 0, y: 0 }; setPan({ x: 0, y: 0 }); }
+    setZoom(next);
+  }, []);
 
   if (isLoading) {
     return (
@@ -188,14 +217,14 @@ export default function ProductDetail() {
           <div className="absolute top-4 right-4 flex gap-2 z-10">
             <button
               className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(5, z + 0.5)); setPan({ x: 0, y: 0 }); }}
+              onClick={(e) => { e.stopPropagation(); stepZoom(0.5); }}
               data-testid="lightbox-zoom-in"
             >
               <ZoomIn className="h-5 w-5" />
             </button>
             <button
               className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.max(1, z - 0.5)); if (zoom - 0.5 <= 1) setPan({ x: 0, y: 0 }); }}
+              onClick={(e) => { e.stopPropagation(); stepZoom(-0.5); }}
               data-testid="lightbox-zoom-out"
             >
               <ZoomOut className="h-5 w-5" />
@@ -209,33 +238,40 @@ export default function ProductDetail() {
             </button>
           </div>
 
+          {/* Zoom level indicator */}
+          {zoom > 1 && (
+            <div className="absolute top-4 left-4 bg-white/20 text-white text-sm rounded-full px-3 py-1 select-none">
+              {Math.round(zoom * 100)}%
+            </div>
+          )}
+
           {/* Zoom hint */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm select-none">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm select-none whitespace-nowrap">
             Scroll to zoom &nbsp;·&nbsp; Drag to pan &nbsp;·&nbsp; Press Esc to close
           </div>
 
           {/* Image container */}
           <div
+            ref={containerRef}
             className="overflow-hidden w-[90vw] h-[90vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
-            onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            style={{ cursor: zoom > 1 ? (dragging.current ? "grabbing" : "grab") : "zoom-in" }}
+            style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
           >
             <img
               src={product.imageUrl}
               alt={product.name}
               draggable={false}
-              className="max-w-none max-h-none select-none"
+              className="select-none"
               style={{
-                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-                transition: dragging.current ? "none" : "transform 0.2s ease",
                 maxWidth: "90vw",
                 maxHeight: "90vh",
                 objectFit: "contain",
+                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                transition: isDragging ? "none" : "transform 0.15s ease",
               }}
               data-testid="lightbox-image"
             />
