@@ -17,7 +17,7 @@ export function Footer() {
                 alt="STITCH Logo" 
                 className="h-8 w-auto"
               />
-              <span className="font-display text-xl font-bold text-foreground">STITCH</span>
+              <span className="font-display text-2xl font-bold rainbow-text whitespace-nowrap">STITCH</span>
             </Link>
             <p className="text-muted-foreground max-w-sm">
               Bringing joy through colorful, craft-inspired handmade items. Every piece is made with love, care, and a sprinkle of magic.
