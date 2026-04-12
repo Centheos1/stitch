@@ -8,7 +8,7 @@ export const products = pgTable("products", {
   description: text("description").notNull(),
   price: integer("price").notNull(), // in cents
   category: text("category").notNull(),
-  imageUrl: text("image_url").notNull(),
+  imageUrls: text("image_urls").array().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

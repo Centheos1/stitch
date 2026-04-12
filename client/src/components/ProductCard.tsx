@@ -10,8 +10,10 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
   const addItem = useCart(state => state.addItem);
   const { toast } = useToast();
 
+  const primaryImage = product.imageUrls?.[0] ?? "";
+
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigating to product detail
+    e.preventDefault();
     addItem(product);
     toast({
       title: "Added to cart! 🛍️",
@@ -31,25 +33,34 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
       <Link href={`/product/${product.id}`} className="block group">
         <div className="h-full flex flex-col bg-white rounded-3xl p-4 shadow-sm border-2 border-transparent hover:border-primary/20 hover:shadow-xl transition-all duration-300">
-          
+
           <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-muted mb-4">
-            <img 
-              src={product.imageUrl} 
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            />
+            {primaryImage ? (
+              <img
+                src={primaryImage}
+                alt={product.name}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
+            )}
             <div className="absolute top-3 left-3">
               <span className={`text-xs font-bold px-3 py-1 rounded-full border ${getCategoryColor(product.category)}`}>
                 {product.category}
               </span>
             </div>
+            {product.imageUrls.length > 1 && (
+              <div className="absolute bottom-3 right-3 bg-black/50 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                +{product.imageUrls.length - 1}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 flex flex-col">
@@ -59,14 +70,14 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
             <p className="text-muted-foreground text-sm line-clamp-2 mb-4 flex-1">
               {product.description}
             </p>
-            
+
             <div className="flex items-center justify-between mt-auto">
               <span className="font-display font-bold text-2xl text-foreground">
                 ${(product.price / 100).toFixed(2)}
               </span>
-              <Button 
+              <Button
                 onClick={handleAddToCart}
-                size="icon" 
+                size="icon"
                 className="rounded-2xl h-10 w-10 bg-primary/10 text-primary hover:bg-primary hover:text-white shadow-none transition-colors"
               >
                 <Plus className="h-5 w-5" />

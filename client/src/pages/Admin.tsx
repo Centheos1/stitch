@@ -7,20 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, GripVertical } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import type { ProductInput, Product } from "@shared/routes";
+import type { Product } from "@shared/schema";
+
+const isValidImageSrc = (val: string) =>
+  val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://");
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
   priceStr: z.string().regex(/^\d+(\.\d{1,2})?$/, "Must be a valid price (e.g. 19.99)"),
   category: z.string().min(1, "Category is required"),
-  imageUrl: z.string().min(1, "An image is required").refine(
-    (val) => val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://"),
-    "Must be a valid image URL or uploaded file"
-  ),
+  imageUrls: z.array(z.string()).min(1, "At least one image is required"),
 });
+
+type FormValues = z.infer<typeof productFormSchema>;
 
 const SESSION_KEY = "stitch_admin_auth";
 
@@ -54,7 +56,6 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
           <h1 className="font-display text-2xl font-bold">Admin Portal</h1>
           <p className="text-sm text-muted-foreground mt-1">Enter your password to continue</p>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm font-semibold mb-1 block">Password</label>
@@ -83,66 +84,111 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function ImageUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+function MultiImageUploader({ values, onChange }: { values: string[]; onChange: (urls: string[]) => void }) {
   const [uploading, setUploading] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("image", file);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    return data.url ?? null;
+  };
+
+  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      onChange(data.url);
+      const urls = await Promise.all(files.map(uploadFile));
+      onChange([...values, ...urls.filter(Boolean) as string[]]);
     } catch {
       alert("Upload failed. Please try again.");
     } finally {
       setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   };
 
+  const addUrl = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed || !isValidImageSrc(trimmed)) return;
+    onChange([...values, trimmed]);
+    setUrlInput("");
+  };
+
+  const remove = (index: number) => {
+    onChange(values.filter((_, i) => i !== index));
+  };
+
+  const moveUp = (index: number) => {
+    if (index === 0) return;
+    const next = [...values];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    onChange(next);
+  };
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Existing images */}
+      {values.length > 0 && (
+        <div className="space-y-2">
+          {values.map((url, i) => (
+            <div key={i} className="flex items-center gap-3 bg-muted/30 rounded-xl p-2 border border-border">
+              <button type="button" onClick={() => moveUp(i)} className="text-muted-foreground hover:text-foreground" title="Move up">
+                <GripVertical className="h-4 w-4" />
+              </button>
+              <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground truncate">{url}</p>
+                {i === 0 && <span className="text-xs font-bold text-primary">Primary image</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                data-testid={`remove-image-${i}`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upload button */}
       <div
-        className="relative border-2 border-dashed border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors text-center"
+        className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
         onClick={() => fileRef.current?.click()}
         data-testid="upload-image-area"
       >
-        {value ? (
-          <div className="relative inline-block">
-            <img src={value} alt="Preview" className="h-32 w-auto mx-auto rounded-lg object-cover" />
-            <button
-              type="button"
-              className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-0.5"
-              onClick={(e) => { e.stopPropagation(); onChange(""); }}
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
+        {uploading ? (
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
         ) : (
-          <div className="py-4">
-            {uploading ? (
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-            ) : (
-              <>
-                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Click to upload an image</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, GIF up to 10MB</p>
-              </>
-            )}
-          </div>
+          <>
+            <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
+            <p className="text-sm text-muted-foreground">Click to upload images</p>
+            <p className="text-xs text-muted-foreground/60 mt-0.5">Select multiple files at once — JPG, PNG, GIF up to 10MB each</p>
+          </>
         )}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
       </div>
-      <Input
-        className="rounded-xl text-xs"
-        placeholder="Or paste an image URL…"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+
+      {/* URL input */}
+      <div className="flex gap-2">
+        <Input
+          className="rounded-xl text-xs flex-1"
+          placeholder="Or paste an image URL and click Add"
+          value={urlInput}
+          onChange={(e) => setUrlInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }}
+        />
+        <Button type="button" variant="outline" size="sm" className="rounded-xl flex-shrink-0" onClick={addUrl}>
+          Add
+        </Button>
+      </div>
     </div>
   );
 }
@@ -156,14 +202,14 @@ function AdminPortal() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  const form = useForm<z.infer<typeof productFormSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: { name: "", description: "", priceStr: "", category: "", imageUrl: "" },
+    defaultValues: { name: "", description: "", priceStr: "", category: "", imageUrls: [] },
   });
 
   const openNew = () => {
     setEditingId(null);
-    form.reset({ name: "", description: "", priceStr: "", category: "", imageUrl: "https://images.unsplash.com/photo-1605335198426-8097b6fa2e75?w=500&q=80" });
+    form.reset({ name: "", description: "", priceStr: "", category: "", imageUrls: [] });
     setIsOpen(true);
   };
 
@@ -174,25 +220,25 @@ function AdminPortal() {
       description: product.description,
       priceStr: (product.price / 100).toFixed(2),
       category: product.category,
-      imageUrl: product.imageUrl,
+      imageUrls: product.imageUrls ?? [],
     });
     setIsOpen(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this cute item?")) {
+    if (confirm("Are you sure you want to delete this item?")) {
       deleteProduct.mutate(id);
     }
   };
 
-  const onSubmit = (data: z.infer<typeof productFormSchema>) => {
+  const onSubmit = (data: FormValues) => {
     const price = Math.round(parseFloat(data.priceStr) * 100);
-    const payload: ProductInput = {
+    const payload = {
       name: data.name,
       description: data.description,
       price,
       category: data.category,
-      imageUrl: data.imageUrl,
+      imageUrls: data.imageUrls,
     };
 
     if (editingId) {
@@ -232,7 +278,7 @@ function AdminPortal() {
                 <Plus className="mr-2 h-4 w-4" /> Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] rounded-3xl border-2 border-border p-8">
+            <DialogContent className="sm:max-w-[520px] rounded-3xl border-2 border-border p-8 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="font-display text-2xl">
                   {editingId ? "Edit Item" : "Create New Item"}
@@ -249,11 +295,12 @@ function AdminPortal() {
                   <FormField control={form.control} name="priceStr" render={({ field }) => (
                     <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input className="rounded-xl" placeholder="19.99" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="imageUrl" render={({ field }) => (
+                  <FormField control={form.control} name="imageUrls" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Product Image</FormLabel>
+                      <FormLabel>Product Images</FormLabel>
+                      <p className="text-xs text-muted-foreground -mt-1">The first image is shown as the main photo. Use the handle icon to reorder.</p>
                       <FormControl>
-                        <ImageUploader value={field.value} onChange={field.onChange} />
+                        <MultiImageUploader values={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -282,20 +329,37 @@ function AdminPortal() {
                   <th className="p-4 font-bold">Item</th>
                   <th className="p-4 font-bold">Category</th>
                   <th className="p-4 font-bold">Price</th>
+                  <th className="p-4 font-bold">Images</th>
                   <th className="p-4 font-bold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {products?.map((product) => (
-                  <tr key={product.id} className="border-b border-border/50 hover:bg-muted/20">
+                  <tr key={product.id} className="border-b border-border/50 hover:bg-muted/20" data-testid={`row-product-${product.id}`}>
                     <td className="p-4">
                       <div className="flex items-center gap-4">
-                        <img src={product.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                        {product.imageUrls?.[0] ? (
+                          <img src={product.imageUrls[0]} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0" />
+                        )}
                         <span className="font-semibold">{product.name}</span>
                       </div>
                     </td>
                     <td className="p-4"><span className="px-3 py-1 bg-muted rounded-full text-xs font-bold">{product.category}</span></td>
                     <td className="p-4 font-bold">${(product.price / 100).toFixed(2)}</td>
+                    <td className="p-4">
+                      <div className="flex gap-1">
+                        {product.imageUrls?.slice(0, 3).map((url, i) => (
+                          <img key={i} src={url} alt="" className="w-8 h-8 rounded object-cover" />
+                        ))}
+                        {(product.imageUrls?.length ?? 0) > 3 && (
+                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
+                            +{product.imageUrls.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-4 text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
                         <Edit className="h-4 w-4" />
@@ -307,7 +371,7 @@ function AdminPortal() {
                   </tr>
                 ))}
                 {products?.length === 0 && (
-                  <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">Inventory is empty. Start adding products!</td></tr>
+                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">Inventory is empty. Start adding products!</td></tr>
                 )}
               </tbody>
             </table>

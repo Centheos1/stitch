@@ -44,9 +44,9 @@ export default function Cart() {
               className="flex flex-col sm:flex-row bg-white p-4 rounded-3xl border border-border shadow-sm gap-6 items-center"
             >
               <div className="w-full sm:w-32 h-32 flex-shrink-0 bg-muted rounded-2xl overflow-hidden">
-                <img 
-                  src={item.product.imageUrl} 
-                  alt={item.product.name} 
+                <img
+                  src={item.product.imageUrls?.[0] ?? ""}
+                  alt={item.product.name}
                   className="w-full h-full object-cover"
                 />
               </div>
