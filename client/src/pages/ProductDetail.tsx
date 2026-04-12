@@ -19,67 +19,72 @@ export default function ProductDetail() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const lastPos = useRef({ x: 0, y: 0 });
-  const zoomRef = useRef(1);
-  const panRef = useRef({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
+
+  // All mutable state kept in refs so native event handlers always see latest values
+  const stateRef = useRef({ zoom: 1, pan: { x: 0, y: 0 }, dragging: false, lastX: 0, lastY: 0 });
+
+  const applyZoom = useCallback((next: number) => {
+    const clamped = Math.min(5, Math.max(1, next));
+    stateRef.current.zoom = clamped;
+    if (clamped <= 1) { stateRef.current.pan = { x: 0, y: 0 }; setPan({ x: 0, y: 0 }); }
+    setZoom(clamped);
+  }, []);
 
   const openLightbox = () => {
+    stateRef.current = { zoom: 1, pan: { x: 0, y: 0 }, dragging: false, lastX: 0, lastY: 0 };
+    setZoom(1); setPan({ x: 0, y: 0 }); setIsDragging(false);
     setLightboxOpen(true);
-    setZoom(1); zoomRef.current = 1;
-    setPan({ x: 0, y: 0 }); panRef.current = { x: 0, y: 0 };
   };
   const closeLightbox = useCallback(() => setLightboxOpen(false), []);
 
-  // Native wheel listener so we can call preventDefault() (passive:false)
+  const stepZoom = useCallback((delta: number) => {
+    applyZoom(stateRef.current.zoom + delta);
+  }, [applyZoom]);
+
+  // All interaction via native document listeners — avoids passive/stale-closure issues
   useEffect(() => {
     if (!lightboxOpen) return;
-    const el = containerRef.current;
-    if (!el) return;
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const next = Math.min(5, Math.max(1, zoomRef.current - e.deltaY * 0.003));
-      zoomRef.current = next;
-      if (next <= 1) { panRef.current = { x: 0, y: 0 }; setPan({ x: 0, y: 0 }); }
-      setZoom(next);
+      applyZoom(stateRef.current.zoom - e.deltaY * 0.003);
     };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [lightboxOpen]);
-
-  // Keyboard close
-  useEffect(() => {
-    if (!lightboxOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (stateRef.current.zoom <= 1) return;
+      stateRef.current.dragging = true;
+      stateRef.current.lastX = e.clientX;
+      stateRef.current.lastY = e.clientY;
+      setIsDragging(true);
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!stateRef.current.dragging) return;
+      const dx = e.clientX - stateRef.current.lastX;
+      const dy = e.clientY - stateRef.current.lastY;
+      stateRef.current.lastX = e.clientX;
+      stateRef.current.lastY = e.clientY;
+      stateRef.current.pan.x += dx;
+      stateRef.current.pan.y += dy;
+      setPan({ ...stateRef.current.pan });
+    };
+    const onMouseUp = () => {
+      stateRef.current.dragging = false;
+      setIsDragging(false);
+    };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeLightbox(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxOpen, closeLightbox]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoomRef.current <= 1) return;
-    e.preventDefault();
-    setIsDragging(true);
-    lastPos.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - lastPos.current.x;
-    const dy = e.clientY - lastPos.current.y;
-    lastPos.current = { x: e.clientX, y: e.clientY };
-    const next = { x: panRef.current.x + dx, y: panRef.current.y + dy };
-    panRef.current = next;
-    setPan({ ...next });
-  };
-
-  const handleMouseUp = () => setIsDragging(false);
-
-  const stepZoom = useCallback((delta: number) => {
-    const next = Math.min(5, Math.max(1, zoomRef.current + delta));
-    zoomRef.current = next;
-    if (next <= 1) { panRef.current = { x: 0, y: 0 }; setPan({ x: 0, y: 0 }); }
-    setZoom(next);
-  }, []);
+    document.addEventListener("wheel", onWheel, { passive: false });
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("wheel", onWheel);
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [lightboxOpen, applyZoom, closeLightbox]);
 
   if (isLoading) {
     return (
@@ -252,13 +257,8 @@ export default function ProductDetail() {
 
           {/* Image container */}
           <div
-            ref={containerRef}
             className="overflow-hidden w-[90vw] h-[90vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
             style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
           >
             <img
