@@ -5,9 +5,25 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 
+const CATEGORY_META: Record<string, { color: string; icon: string }> = {
+  "animals":              { color: "bg-[#FF6B6B]", icon: "🦒" },
+  "bags":                 { color: "bg-[#FFA06A]", icon: "👜" },
+  "hair clips":           { color: "bg-[#FFD93D]", icon: "🎀" },
+  "christmas decorations":{ color: "bg-[#6BCB77]", icon: "🎄" },
+  "other handmade items": { color: "bg-[#A78BFA]", icon: "✨" },
+};
+
+const FALLBACK_COLORS = ["bg-[#60A5FA]","bg-[#F472B6]","bg-[#34D399]","bg-[#FBBF24]","bg-[#F87171]"];
+
+function getCategoryMeta(name: string, index: number) {
+  const key = name.toLowerCase();
+  return CATEGORY_META[key] ?? { color: FALLBACK_COLORS[index % FALLBACK_COLORS.length], icon: "🎁" };
+}
+
 export default function Home() {
   const { data: products, isLoading } = useProducts();
   const featuredProducts = products?.slice(0, 4) || [];
+  const dynamicCategories = Array.from(new Set((products ?? []).map((p) => p.category))).sort();
 
   return (
     <div className="min-h-screen">
@@ -74,26 +90,28 @@ export default function Home() {
             <p className="text-lg text-muted-foreground">Find exactly what makes your heart smile.</p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
-            {[
-              { name: "Animals", color: "bg-[#FF6B6B]", icon: "🦒" },
-              { name: "Bags", color: "bg-[#FFA06A]", icon: "👜" },
-              { name: "Hair Clips", color: "bg-[#FFD93D]", icon: "🎀" },
-              { name: "Decorations", color: "bg-[#6BCB77]", icon: "✨" },
-            ].map((cat, i) => (
-              <Link key={cat.name} href={`/shop?category=${cat.name}`}>
-                <motion.div 
-                  whileHover={{ scale: 1.05 }}
-                  className="cursor-pointer group flex flex-col items-center justify-center p-8 rounded-[2.5rem] bg-background border-2 border-border hover:border-transparent hover:shadow-xl transition-all"
-                >
-                  <div className={`h-20 w-20 rounded-full ${cat.color} flex items-center justify-center text-4xl shadow-inner mb-4 group-hover:-translate-y-2 transition-transform`}>
-                    {cat.icon}
-                  </div>
-                  <h3 className="font-display font-bold text-xl">{cat.name}</h3>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
+          {dynamicCategories.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              {dynamicCategories.map((name, i) => {
+                const { color, icon } = getCategoryMeta(name, i);
+                return (
+                  <Link key={name} href={`/shop?category=${encodeURIComponent(name)}`}>
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      className="cursor-pointer group flex flex-col items-center justify-center p-8 rounded-[2.5rem] bg-background border-2 border-border hover:border-transparent hover:shadow-xl transition-all"
+                    >
+                      <div className={`h-20 w-20 rounded-full ${color} flex items-center justify-center text-4xl shadow-inner mb-4 group-hover:-translate-y-2 transition-transform`}>
+                        {icon}
+                      </div>
+                      <h3 className="font-display font-bold text-xl text-center">{name}</h3>
+                    </motion.div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8">No categories yet — add some products to get started!</div>
+          )}
         </div>
       </section>
 
