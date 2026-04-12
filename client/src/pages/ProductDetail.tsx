@@ -2,8 +2,8 @@ import { useRoute } from "wouter";
 import { useProduct } from "@/hooks/use-products";
 import { useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import { Minus, Plus, ShoppingCart, Heart, ArrowLeft } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Minus, Plus, ShoppingCart, Heart, ArrowLeft, ZoomIn, ZoomOut, X } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +15,42 @@ export default function ProductDetail() {
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
+  const openLightbox = () => { setLightboxOpen(true); setZoom(1); setPan({ x: 0, y: 0 }); };
+  const closeLightbox = () => setLightboxOpen(false);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((z) => Math.min(5, Math.max(1, z - e.deltaY * 0.002)));
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    dragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+  };
+
+  const handleMouseUp = () => { dragging.current = false; };
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeLightbox(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   if (isLoading) {
     return (
@@ -56,13 +92,20 @@ export default function ProductDetail() {
         <div className="bg-white rounded-[3rem] p-6 lg:p-12 shadow-sm border border-border">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
             
-            {/* Image */}
-            <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-dashed border-border/50">
-              <img 
-                src={product.imageUrl} 
+            {/* Image — click to open lightbox */}
+            <div
+              className="relative aspect-square rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-dashed border-border/50 cursor-zoom-in group"
+              onClick={openLightbox}
+              data-testid="product-image-zoom-trigger"
+            >
+              <img
+                src={product.imageUrl}
                 alt={product.name}
-                className="w-full h-full object-cover rounded-[1.5rem] shadow-md"
+                className="w-full h-full object-cover rounded-[1.5rem] shadow-md transition-transform duration-300 group-hover:scale-105"
               />
+              <div className="absolute bottom-6 right-6 bg-white/80 backdrop-blur-sm rounded-xl p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+                <ZoomIn className="h-5 w-5 text-foreground" />
+              </div>
             </div>
 
             {/* Details */}
@@ -133,6 +176,72 @@ export default function ProductDetail() {
         </div>
 
       </div>
+
+      {/* Lightbox */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={closeLightbox}
+          data-testid="lightbox-overlay"
+        >
+          {/* Controls */}
+          <div className="absolute top-4 right-4 flex gap-2 z-10">
+            <button
+              className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(5, z + 0.5)); setPan({ x: 0, y: 0 }); }}
+              data-testid="lightbox-zoom-in"
+            >
+              <ZoomIn className="h-5 w-5" />
+            </button>
+            <button
+              className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.max(1, z - 0.5)); if (zoom - 0.5 <= 1) setPan({ x: 0, y: 0 }); }}
+              data-testid="lightbox-zoom-out"
+            >
+              <ZoomOut className="h-5 w-5" />
+            </button>
+            <button
+              className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+              onClick={closeLightbox}
+              data-testid="lightbox-close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Zoom hint */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm select-none">
+            Scroll to zoom &nbsp;·&nbsp; Drag to pan &nbsp;·&nbsp; Press Esc to close
+          </div>
+
+          {/* Image container */}
+          <div
+            className="overflow-hidden w-[90vw] h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{ cursor: zoom > 1 ? (dragging.current ? "grabbing" : "grab") : "zoom-in" }}
+          >
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              draggable={false}
+              className="max-w-none max-h-none select-none"
+              style={{
+                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                transition: dragging.current ? "none" : "transform 0.2s ease",
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+              }}
+              data-testid="lightbox-image"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
