@@ -1,7 +1,11 @@
 import { Link } from "wouter";
 import stitchLogo from "@assets/Screenshot_2026-03-08_at_10.19.25_am_1772925583025.png";
+import { useProducts } from "@/hooks/use-products";
 
 export function Footer() {
+  const { data: products } = useProducts();
+  const categories = Array.from(new Set((products ?? []).map((p) => p.category))).sort();
+
   return (
     <footer className="bg-white border-t border-border mt-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
@@ -31,11 +35,17 @@ export function Footer() {
           
           <div>
             <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
-            <ul className="space-y-2 text-muted-foreground">
-              <li>Animals</li>
-              <li>Bags</li>
-              <li>Hair Clips</li>
-              <li>Decorations</li>
+            <ul className="space-y-2">
+              {categories.map((cat) => (
+                <li key={cat}>
+                  <Link
+                    href={`/shop?category=${encodeURIComponent(cat)}`}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {cat}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
