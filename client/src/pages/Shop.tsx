@@ -6,19 +6,20 @@ import { Search, FilterX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const CATEGORIES = ["All", "Animals", "Bags", "Hair Clips", "Christmas Decorations", "Other Handmade Items"];
-
 export default function Shop() {
   const [searchParams] = useState(new URLSearchParams(window.location.search));
   const urlCategory = searchParams.get("category");
-  
+
   const [activeCategory, setActiveCategory] = useState(urlCategory || "All");
   const [searchQuery, setSearchQuery] = useState("");
-  
+
+  const { data: allProducts } = useProducts();
   const { data: products, isLoading } = useProducts(
     activeCategory === "All" ? undefined : activeCategory,
     searchQuery || undefined
   );
+
+  const categories = ["All", ...Array.from(new Set((allProducts ?? []).map((p) => p.category))).sort()];
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
@@ -51,7 +52,7 @@ export default function Shop() {
           <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
             <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
             <div className="flex flex-col gap-2">
-              {CATEGORIES.map(cat => (
+              {categories.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
