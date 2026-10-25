@@ -46,7 +46,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
               <img
                 src={primaryImage}
                 alt={product.name}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                className="w-full h-full object-contain bg-white"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>

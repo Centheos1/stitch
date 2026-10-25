@@ -47,7 +47,7 @@ export default function Cart() {
                 <img
                   src={item.product.imageUrls?.[0] ?? ""}
                   alt={item.product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain bg-white"
                 />
               </div>
               

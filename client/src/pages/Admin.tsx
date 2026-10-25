@@ -473,7 +473,7 @@ function MultiImageUploader({
                 title="Open image preview and resize"
                 aria-label={`Open image ${i + 1} preview and resize`}
               >
-                <img src={url} alt="" className="h-full w-full rounded-lg object-cover" />
+                <img src={url} alt="" className="h-full w-full rounded-lg object-contain bg-white" />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   <Eye className="h-5 w-5" />
                 </span>
@@ -957,7 +957,7 @@ function AdminPortal() {
                     <td className="p-4">
                       <div className="flex items-center gap-4">
                         {product.imageUrls?.[0] ? (
-                          <img src={product.imageUrls[0]} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                          <img src={product.imageUrls[0]} alt="" className="w-12 h-12 rounded-lg object-contain bg-white flex-shrink-0" />
                         ) : (
                           <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0" />
                         )}
@@ -969,7 +969,7 @@ function AdminPortal() {
                     <td className="p-4">
                       <div className="flex gap-1">
                         {product.imageUrls?.slice(0, 3).map((url, i) => (
-                          <img key={i} src={url} alt="" className="w-8 h-8 rounded object-cover" />
+                          <img key={i} src={url} alt="" className="w-8 h-8 rounded object-contain bg-white" />
                         ))}
                         {(product.imageUrls?.length ?? 0) > 3 && (
                           <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">

@@ -143,7 +143,7 @@ export default function ProductDetail() {
                   <img
                     src={currentImage}
                     alt={product.name}
-                    className="w-full h-full object-cover rounded-[1.5rem] shadow-md transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-full object-contain rounded-[1.5rem] shadow-md"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">No image</div>
@@ -181,7 +181,7 @@ export default function ProductDetail() {
                       }`}
                       data-testid={`thumbnail-${i}`}
                     >
-                      <img src={url} alt={`${product.name} view ${i + 1}`} className="w-full h-full object-cover" />
+                      <img src={url} alt={`${product.name} view ${i + 1}`} className="w-full h-full object-contain bg-white" />
                     </button>
                   ))}
                 </div>
@@ -309,7 +309,7 @@ export default function ProductDetail() {
                   onClick={(e) => { e.stopPropagation(); setSelectedIndex(i); applyZoom(1); }}
                   className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === selectedIndex ? "border-white scale-110" : "border-white/30 opacity-60 hover:opacity-100"}`}
                 >
-                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <img src={url} alt="" className="w-full h-full object-contain bg-white" />
                 </button>
               ))}
             </div>
