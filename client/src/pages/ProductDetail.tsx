@@ -166,7 +166,7 @@ export default function ProductDetail() {
             <div className="space-y-3">
               {/* Main image */}
               <div
-                className="relative h-[55vh] max-h-[520px] w-full rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-dashed border-border/50 cursor-zoom-in group"
+                className="relative h-[55vh] max-h-[520px] w-full rounded-[2rem] overflow-hidden bg-muted/30 p-4 cursor-zoom-in group"
                 style={{ height: "min(55svh, 520px)" }}
                 onClick={() => openLightbox(selectedIndex)}
                 data-testid="product-image-zoom-trigger"
