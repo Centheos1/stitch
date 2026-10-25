@@ -42,7 +42,7 @@ export default function Shop() {
               <Input 
                 type="text" 
                 placeholder="Search items..." 
-                className="pl-10 rounded-xl bg-background border-border"
+                className="pl-10 rounded-xl bg-background border-border focus-visible:ring-[#A8E3BC]"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
