@@ -166,23 +166,20 @@ export default function ProductDetail() {
             <div className="space-y-3">
               {/* Main image */}
               <div
-                className="relative h-[55vh] max-h-[520px] w-full rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-border/50 cursor-zoom-in group"
+                className="relative flex h-[55vh] max-h-[520px] w-full items-center justify-center"
                 style={{ height: "min(55svh, 520px)" }}
-                onClick={() => openLightbox(selectedIndex)}
-                data-testid="product-image-zoom-trigger"
               >
                 {currentImage ? (
                   <img
                     src={currentImage}
                     alt={product.name}
-                    className="w-full h-full object-contain rounded-[1.5rem]"
+                    className="h-auto w-auto max-h-full max-w-full cursor-zoom-in rounded-[1.5rem] border-2 border-border/50 object-contain"
+                    onClick={() => openLightbox(selectedIndex)}
+                    data-testid="product-image-zoom-trigger"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">No image</div>
                 )}
-                <div className="absolute bottom-6 right-6 bg-white/80 backdrop-blur-sm rounded-xl p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ZoomIn className="h-5 w-5 text-foreground" />
-                </div>
                 {images.length > 1 && (
                   <>
                     <button
