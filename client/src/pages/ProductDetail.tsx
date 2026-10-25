@@ -22,16 +22,33 @@ export default function ProductDetail() {
   const [isDragging, setIsDragging] = useState(false);
 
   const stateRef = useRef({ zoom: 1, pan: { x: 0, y: 0 }, dragging: false, lastX: 0, lastY: 0 });
+  const lightboxContainerRef = useRef<HTMLDivElement>(null);
+  const lightboxImageRef = useRef<HTMLImageElement>(null);
 
   const images = product?.imageUrls ?? [];
   const currentImage = images[selectedIndex] ?? images[0] ?? "";
 
+  const clampPan = useCallback((nextPan: { x: number; y: number }, currentZoom: number) => {
+    const container = lightboxContainerRef.current;
+    const image = lightboxImageRef.current;
+    if (currentZoom <= 1 || !container || !image) return { x: 0, y: 0 };
+
+    const maxX = Math.max(0, (image.offsetWidth * currentZoom - container.clientWidth) / 2);
+    const maxY = Math.max(0, (image.offsetHeight * currentZoom - container.clientHeight) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, nextPan.x)),
+      y: Math.max(-maxY, Math.min(maxY, nextPan.y)),
+    };
+  }, []);
+
   const applyZoom = useCallback((next: number) => {
     const clamped = Math.min(5, Math.max(1, next));
     stateRef.current.zoom = clamped;
-    if (clamped <= 1) { stateRef.current.pan = { x: 0, y: 0 }; setPan({ x: 0, y: 0 }); }
+    const nextPan = clampPan(stateRef.current.pan, clamped);
+    stateRef.current.pan = nextPan;
+    setPan(nextPan);
     setZoom(clamped);
-  }, []);
+  }, [clampPan]);
 
   const openLightbox = (index?: number) => {
     if (index !== undefined) setSelectedIndex(index);
@@ -52,7 +69,18 @@ export default function ProductDetail() {
     if (!lightboxOpen) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      applyZoom(stateRef.current.zoom - e.deltaY * 0.003);
+      const currentZoom = stateRef.current.zoom;
+      if (currentZoom <= 1 || e.ctrlKey) {
+        applyZoom(currentZoom - e.deltaY * 0.003);
+        return;
+      }
+
+      const nextPan = clampPan({
+        x: stateRef.current.pan.x - e.deltaX,
+        y: stateRef.current.pan.y - e.deltaY,
+      }, currentZoom);
+      stateRef.current.pan = nextPan;
+      setPan(nextPan);
     };
     const onMouseDown = (e: MouseEvent) => {
       if (stateRef.current.zoom <= 1) return;
@@ -67,9 +95,12 @@ export default function ProductDetail() {
       const dy = e.clientY - stateRef.current.lastY;
       stateRef.current.lastX = e.clientX;
       stateRef.current.lastY = e.clientY;
-      stateRef.current.pan.x += dx;
-      stateRef.current.pan.y += dy;
-      setPan({ ...stateRef.current.pan });
+      const nextPan = clampPan({
+        x: stateRef.current.pan.x + dx,
+        y: stateRef.current.pan.y + dy,
+      }, stateRef.current.zoom);
+      stateRef.current.pan = nextPan;
+      setPan(nextPan);
     };
     const onMouseUp = () => { stateRef.current.dragging = false; setIsDragging(false); };
     const onKey = (e: KeyboardEvent) => {
@@ -89,7 +120,7 @@ export default function ProductDetail() {
       document.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("keydown", onKey);
     };
-  }, [lightboxOpen, applyZoom, closeLightbox, images.length]);
+  }, [lightboxOpen, applyZoom, clampPan, closeLightbox, images.length]);
 
   if (isLoading) {
     return (
@@ -298,7 +329,10 @@ export default function ProductDetail() {
 
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm select-none whitespace-nowrap">
             {images.length > 1 && <span>{selectedIndex + 1} / {images.length} &nbsp;·&nbsp; </span>}
-            Scroll to zoom &nbsp;·&nbsp; Drag to pan &nbsp;·&nbsp; Esc to close
+            {zoom > 1
+              ? "Scroll or drag to pan · Use +/− to zoom"
+              : "Scroll to zoom in · Drag to pan when zoomed"}
+            &nbsp;·&nbsp; Esc to close
           </div>
 
           {/* Thumbnail strip in lightbox */}
@@ -318,11 +352,13 @@ export default function ProductDetail() {
 
           {/* Image container */}
           <div
+            ref={lightboxContainerRef}
             className="overflow-hidden w-[90vw] h-[80vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
             style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
           >
             <img
+              ref={lightboxImageRef}
               src={currentImage}
               alt={product.name}
               draggable={false}
