@@ -971,11 +971,6 @@ function AdminPortal() {
                         {product.imageUrls?.slice(0, 3).map((url, i) => (
                           <img key={i} src={url} alt="" className="w-8 h-8 rounded object-contain bg-white" />
                         ))}
-                        {(product.imageUrls?.length ?? 0) > 3 && (
-                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
-                            +{product.imageUrls.length - 3}
-                          </div>
-                        )}
                       </div>
                     </td>
                     <td className="p-4 text-right">

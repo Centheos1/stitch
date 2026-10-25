@@ -56,11 +56,6 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
                 {product.category}
               </span>
             </div>
-            {product.imageUrls.length > 1 && (
-              <div className="absolute bottom-3 right-3 bg-black/50 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                +{product.imageUrls.length - 1}
-              </div>
-            )}
           </div>
 
           <div className="flex-1 flex flex-col">
