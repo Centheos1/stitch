@@ -297,14 +297,14 @@ export default function ProductDetail() {
           data-testid="lightbox-overlay"
         >
           {/* Controls */}
-          <div className="absolute top-4 right-4 flex gap-2 z-10">
+          <div className="absolute top-4 right-4 z-20 flex gap-2">
             <button className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors" onClick={(e) => { e.stopPropagation(); stepZoom(0.5); }} data-testid="lightbox-zoom-in"><ZoomIn className="h-5 w-5" /></button>
             <button className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors" onClick={(e) => { e.stopPropagation(); stepZoom(-0.5); }} data-testid="lightbox-zoom-out"><ZoomOut className="h-5 w-5" /></button>
             <button className="bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors" onClick={closeLightbox} data-testid="lightbox-close"><X className="h-5 w-5" /></button>
           </div>
 
           {zoom > 1 && (
-            <div className="absolute top-4 left-4 bg-white/20 text-white text-sm rounded-full px-3 py-1 select-none">
+            <div className="absolute top-4 left-4 z-20 rounded-full bg-white/20 px-3 py-1 text-sm text-white select-none">
               {Math.round(zoom * 100)}%
             </div>
           )}
@@ -313,13 +313,13 @@ export default function ProductDetail() {
           {images.length > 1 && (
             <>
               <button
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 z-10"
+                className="absolute left-4 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/20 p-3 text-white hover:bg-white/30"
                 onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => (i - 1 + images.length) % images.length); applyZoom(1); }}
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <button
-                className="absolute right-20 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-3 z-10"
+                className="absolute right-20 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/20 p-3 text-white hover:bg-white/30"
                 onClick={(e) => { e.stopPropagation(); setSelectedIndex((i) => (i + 1) % images.length); applyZoom(1); }}
               >
                 <ChevronRight className="h-6 w-6" />
@@ -327,7 +327,7 @@ export default function ProductDetail() {
             </>
           )}
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm select-none whitespace-nowrap">
+          <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap text-sm text-white/80 select-none">
             {images.length > 1 && <span>{selectedIndex + 1} / {images.length} &nbsp;·&nbsp; </span>}
             {zoom > 1
               ? "Scroll or drag to pan · Use +/− to zoom"
@@ -337,12 +337,12 @@ export default function ProductDetail() {
 
           {/* Thumbnail strip in lightbox */}
           {images.length > 1 && (
-            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex gap-2">
+            <div className="absolute bottom-12 left-1/2 z-20 flex max-w-[90vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-xl bg-black/50 p-2 backdrop-blur-sm">
               {images.map((url, i) => (
                 <button
                   key={i}
                   onClick={(e) => { e.stopPropagation(); setSelectedIndex(i); applyZoom(1); }}
-                  className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === selectedIndex ? "border-white scale-110" : "border-white/30 opacity-60 hover:opacity-100"}`}
+                  className={`h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all ${i === selectedIndex ? "border-white scale-110" : "border-white/30 opacity-60 hover:opacity-100"}`}
                 >
                   <img src={url} alt="" className="w-full h-full object-contain bg-white" />
                 </button>
@@ -353,7 +353,7 @@ export default function ProductDetail() {
           {/* Image container */}
           <div
             ref={lightboxContainerRef}
-            className="overflow-hidden w-[90vw] h-[80vh] flex items-center justify-center"
+            className={`absolute left-[5vw] right-[5vw] top-16 ${images.length > 1 ? "bottom-28" : "bottom-12"} z-0 flex items-center justify-center overflow-hidden`}
             onClick={(e) => e.stopPropagation()}
             style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
           >
@@ -364,8 +364,8 @@ export default function ProductDetail() {
               draggable={false}
               className="select-none"
               style={{
-                maxWidth: "90vw",
-                maxHeight: "80vh",
+                maxWidth: "100%",
+                maxHeight: "100%",
                 objectFit: "contain",
                 transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
                 transition: isDragging ? "none" : "transform 0.15s ease",
