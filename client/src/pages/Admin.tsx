@@ -89,18 +89,14 @@ interface PendingImage {
   previewUrl: string;
   width: number | null;
   height: number | null;
+  targetWidth: number | null;
+  targetHeight: number | null;
+  preserveAspectRatio: boolean;
 }
 
 const MAX_IMAGE_DIMENSION = 4096;
 const DEFAULT_IMAGE_DIMENSION = 1600;
 const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
-
-function getSafeMaxDimension(value: string) {
-  const parsed = value.trim() ? Number(value) : DEFAULT_IMAGE_DIMENSION;
-  return Number.isFinite(parsed)
-    ? Math.max(64, Math.min(MAX_IMAGE_DIMENSION, Math.round(parsed)))
-    : DEFAULT_IMAGE_DIMENSION;
-}
 
 function getResizedDimensions(width: number, height: number, maxDimension: number) {
   const scale = Math.min(1, maxDimension / Math.max(width, height));
@@ -110,19 +106,24 @@ function getResizedDimensions(width: number, height: number, maxDimension: numbe
   };
 }
 
-async function resizeImageFile(file: File, maxDimension: number): Promise<File> {
+function getSafeDimension(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? Math.max(1, Math.min(MAX_IMAGE_DIMENSION, Math.round(parsed)))
+    : null;
+}
+
+async function resizeImageFile(file: File, targetWidth: number, targetHeight: number): Promise<File> {
   // Keep animated GIFs intact rather than flattening them to a single frame.
   if (file.type === "image/gif") return file;
 
   const bitmap = await createImageBitmap(file);
   try {
-    const longestSide = Math.max(bitmap.width, bitmap.height);
-    if (longestSide <= maxDimension) return file;
-
-    const scale = maxDimension / longestSide;
+    if (bitmap.width === targetWidth && bitmap.height === targetHeight) return file;
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Your browser could not resize this image.");
 
@@ -157,7 +158,6 @@ function MultiImageUploader({
 }) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
-  const [maxDimension, setMaxDimension] = useState(String(DEFAULT_IMAGE_DIMENSION));
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [uploadError, setUploadError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -166,6 +166,49 @@ function MultiImageUploader({
   const syncPendingImages = (next: PendingImage[]) => {
     pendingImagesRef.current = next;
     setPendingImages(next);
+  };
+
+  const updatePendingDimension = (
+    previewUrl: string,
+    field: "targetWidth" | "targetHeight",
+    value: string
+  ) => {
+    const requested = getSafeDimension(value);
+    const next = pendingImagesRef.current.map((image) => {
+      if (image.previewUrl !== previewUrl) return image;
+
+      const updated = { ...image, [field]: requested };
+      if (image.preserveAspectRatio && requested !== null && image.width && image.height) {
+        const width = field === "targetWidth"
+          ? requested
+          : Math.round(requested * image.width / image.height);
+        const height = field === "targetHeight"
+          ? requested
+          : Math.round(requested * image.height / image.width);
+        const fitted = getResizedDimensions(width, height, MAX_IMAGE_DIMENSION);
+        updated.targetWidth = fitted.width;
+        updated.targetHeight = fitted.height;
+      }
+      return updated;
+    });
+    syncPendingImages(next);
+  };
+
+  const updateAspectRatio = (previewUrl: string, preserveAspectRatio: boolean) => {
+    const next = pendingImagesRef.current.map((image) => {
+      if (image.previewUrl !== previewUrl) return image;
+
+      const updated = { ...image, preserveAspectRatio };
+      if (preserveAspectRatio && image.width && image.height) {
+        const width = image.targetWidth ?? image.width;
+        const height = Math.round(width * image.height / image.width);
+        const fitted = getResizedDimensions(width, height, MAX_IMAGE_DIMENSION);
+        updated.targetWidth = fitted.width;
+        updated.targetHeight = fitted.height;
+      }
+      return updated;
+    });
+    syncPendingImages(next);
   };
 
   useEffect(() => () => {
@@ -196,6 +239,9 @@ function MultiImageUploader({
       previewUrl: URL.createObjectURL(file),
       width: null,
       height: null,
+      targetWidth: null,
+      targetHeight: null,
+      preserveAspectRatio: true,
     }));
     syncPendingImages([...pendingImagesRef.current, ...addedImages]);
 
@@ -203,9 +249,19 @@ function MultiImageUploader({
       const preview = new Image();
       preview.onload = () => {
         setPendingImages((current) => {
-          const next = current.map((image) => image.previewUrl === pendingImage.previewUrl
-            ? { ...image, width: preview.naturalWidth, height: preview.naturalHeight }
-            : image);
+          const next = current.map((image) => {
+            if (image.previewUrl !== pendingImage.previewUrl) return image;
+            const target = image.file.type === "image/gif"
+              ? { width: preview.naturalWidth, height: preview.naturalHeight }
+              : getResizedDimensions(preview.naturalWidth, preview.naturalHeight, DEFAULT_IMAGE_DIMENSION);
+            return {
+              ...image,
+              width: preview.naturalWidth,
+              height: preview.naturalHeight,
+              targetWidth: target.width,
+              targetHeight: target.height,
+            };
+          });
           pendingImagesRef.current = next;
           return next;
         });
@@ -230,12 +286,14 @@ function MultiImageUploader({
     const uploadedUrls: string[] = [];
     const uploadedPreviewUrls = new Set<string>();
     let failureMessage = "";
-    const resizeTo = getSafeMaxDimension(maxDimension);
 
     try {
       for (const image of pendingImages) {
         try {
-          const resizedFile = await resizeImageFile(image.file, resizeTo);
+          if (!image.targetWidth || !image.targetHeight) {
+            throw new Error("Enter valid width and height values before uploading.");
+          }
+          const resizedFile = await resizeImageFile(image.file, image.targetWidth, image.targetHeight);
           uploadedUrls.push(await uploadFile(resizedFile));
           uploadedPreviewUrls.add(image.previewUrl);
         } catch (error) {
@@ -305,31 +363,13 @@ function MultiImageUploader({
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-muted/20 p-3">
-        <label htmlFor="image-max-dimension" className="text-sm font-semibold">Maximum image dimension</label>
-        <div className="mt-2 flex items-center gap-2">
-          <Input
-            id="image-max-dimension"
-            type="number"
-            min={64}
-            max={MAX_IMAGE_DIMENSION}
-            step={1}
-            value={maxDimension}
-            onChange={(e) => setMaxDimension(e.target.value)}
-            className="w-28 rounded-lg"
-            disabled={uploading}
-          />
-          <span className="text-sm text-muted-foreground">px on the longest side</span>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Larger images are resized proportionally before upload. Animated GIFs stay unchanged.
-        </p>
-      </div>
-
       {pendingImages.length > 0 && (
         <div className="space-y-3 rounded-xl border border-border p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold">Preview selected images</p>
+            <div>
+              <p className="text-sm font-semibold">Preview and resize</p>
+              <p className="text-xs text-muted-foreground">Set exact dimensions for each image, up to {MAX_IMAGE_DIMENSION}px per side.</p>
+            </div>
             <Button
               type="button"
               variant="ghost"
@@ -344,37 +384,95 @@ function MultiImageUploader({
               Clear all
             </Button>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
             {pendingImages.map((image) => {
-              const targetSize = image.width && image.height
-                ? getResizedDimensions(image.width, image.height, getSafeMaxDimension(maxDimension))
-                : null;
+              const targetWidth = image.targetWidth;
+              const targetHeight = image.targetHeight;
+              const previewScale = targetWidth && targetHeight
+                ? Math.min(280 / targetWidth, 220 / targetHeight)
+                : 1;
               return (
-                <div key={image.previewUrl} className="flex min-w-0 items-center gap-3 rounded-lg bg-muted/30 p-2">
-                  <img
-                    src={image.previewUrl}
-                    alt={`Preview of ${image.file.name}`}
-                    className="h-20 w-20 flex-shrink-0 rounded-md border border-border bg-white object-contain"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold" title={image.file.name}>{image.file.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {image.width && image.height && targetSize
-                        ? image.file.type === "image/gif"
-                          ? `${image.width} × ${image.height}px · GIF unchanged`
-                          : `${image.width} × ${image.height}px → ${targetSize.width} × ${targetSize.height}px`
-                        : "Reading image dimensions…"}
-                    </p>
+                <div key={image.previewUrl} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
+                  <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-lg bg-white/70 p-3">
+                    {image.width && image.height && targetWidth && targetHeight ? (
+                      <img
+                        src={image.previewUrl}
+                        alt={`Resized preview of ${image.file.name}`}
+                        className="rounded object-fill"
+                        style={{
+                          width: `${Math.round(targetWidth * previewScale)}px`,
+                          height: `${Math.round(targetHeight * previewScale)}px`,
+                        }}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Reading image dimensions…</p>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removePendingImage(image.previewUrl)}
-                    className="flex-shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                    aria-label={`Remove ${image.file.name}`}
-                    disabled={uploading}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="mt-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold" title={image.file.name}>{image.file.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {image.width && image.height && targetWidth && targetHeight
+                          ? `Original ${image.width} × ${image.height}px · Preview ${targetWidth} × ${targetHeight}px`
+                          : "Reading image dimensions…"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removePendingImage(image.previewUrl)}
+                      className="flex-shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                      aria-label={`Remove ${image.file.name}`}
+                      disabled={uploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <label className="space-y-1 text-xs font-semibold">
+                      Width (px)
+                      <Input
+                        type="number"
+                        min={1}
+                        max={MAX_IMAGE_DIMENSION}
+                        step={1}
+                        value={targetWidth ?? ""}
+                        onChange={(e) => updatePendingDimension(image.previewUrl, "targetWidth", e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                        className="h-9 rounded-lg text-sm"
+                        disabled={uploading || image.file.type === "image/gif" || !image.width}
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs font-semibold">
+                      Height (px)
+                      <Input
+                        type="number"
+                        min={1}
+                        max={MAX_IMAGE_DIMENSION}
+                        step={1}
+                        value={targetHeight ?? ""}
+                        onChange={(e) => updatePendingDimension(image.previewUrl, "targetHeight", e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                        className="h-9 rounded-lg text-sm"
+                        disabled={uploading || image.file.type === "image/gif" || !image.height}
+                      />
+                    </label>
+                  </div>
+                  <label className={`mt-3 flex items-center gap-2 text-xs ${image.file.type === "image/gif" ? "text-muted-foreground" : "cursor-pointer"}`}>
+                    <input
+                      type="checkbox"
+                      checked={image.preserveAspectRatio}
+                      onChange={(e) => updateAspectRatio(image.previewUrl, e.target.checked)}
+                      disabled={uploading || image.file.type === "image/gif"}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Keep proportions
+                  </label>
+                  {image.file.type === "image/gif" && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Animated GIFs are uploaded unchanged to preserve animation.
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -383,7 +481,7 @@ function MultiImageUploader({
             type="button"
             className="w-full rounded-xl"
             onClick={uploadPendingImages}
-            disabled={uploading || pendingImages.length === 0}
+            disabled={uploading || pendingImages.length === 0 || pendingImages.some((image) => !image.targetWidth || !image.targetHeight)}
           >
             {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Resizing and uploading…</> : `Upload ${pendingImages.length} image${pendingImages.length === 1 ? "" : "s"}`}
           </Button>
