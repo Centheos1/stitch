@@ -1,5 +1,5 @@
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -84,31 +84,178 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function MultiImageUploader({ values, onChange }: { values: string[]; onChange: (urls: string[]) => void }) {
+interface PendingImage {
+  file: File;
+  previewUrl: string;
+  width: number | null;
+  height: number | null;
+}
+
+const MAX_IMAGE_DIMENSION = 4096;
+const DEFAULT_IMAGE_DIMENSION = 1600;
+const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
+
+function getSafeMaxDimension(value: string) {
+  const parsed = value.trim() ? Number(value) : DEFAULT_IMAGE_DIMENSION;
+  return Number.isFinite(parsed)
+    ? Math.max(64, Math.min(MAX_IMAGE_DIMENSION, Math.round(parsed)))
+    : DEFAULT_IMAGE_DIMENSION;
+}
+
+function getResizedDimensions(width: number, height: number, maxDimension: number) {
+  const scale = Math.min(1, maxDimension / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+async function resizeImageFile(file: File, maxDimension: number): Promise<File> {
+  // Keep animated GIFs intact rather than flattening them to a single frame.
+  if (file.type === "image/gif") return file;
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const longestSide = Math.max(bitmap.width, bitmap.height);
+    if (longestSide <= maxDimension) return file;
+
+    const scale = maxDimension / longestSide;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Your browser could not resize this image.");
+
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const outputType = ["image/jpeg", "image/png", "image/webp"].includes(file.type)
+      ? file.type
+      : "image/png";
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) => result ? resolve(result) : reject(new Error("Your browser could not resize this image.")),
+        outputType,
+        outputType === "image/jpeg" ? 0.9 : undefined
+      );
+    });
+
+    const extension = outputType === "image/jpeg" ? ".jpg" : outputType === "image/webp" ? ".webp" : ".png";
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "image";
+    return new File([blob], `${baseName}${extension}`, { type: outputType, lastModified: file.lastModified });
+  } finally {
+    bitmap.close();
+  }
+}
+
+function MultiImageUploader({
+  values,
+  onChange,
+  onUploadingChange,
+}: {
+  values: string[];
+  onChange: (urls: string[]) => void;
+  onUploadingChange: (uploading: boolean) => void;
+}) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [maxDimension, setMaxDimension] = useState(String(DEFAULT_IMAGE_DIMENSION));
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [uploadError, setUploadError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const pendingImagesRef = useRef<PendingImage[]>([]);
 
-  const uploadFile = async (file: File): Promise<string | null> => {
+  const syncPendingImages = (next: PendingImage[]) => {
+    pendingImagesRef.current = next;
+    setPendingImages(next);
+  };
+
+  useEffect(() => () => {
+    pendingImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+  }, []);
+
+  const uploadFile = async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append("image", file);
     const res = await fetch("/api/upload", { method: "POST", body: formData });
-    const data = await res.json();
-    return data.url ?? null;
+    const data = await res.json().catch(() => ({})) as { url?: string; message?: string };
+    if (!res.ok || !data.url) {
+      throw new Error(data.message || "Upload failed. Please try again.");
+    }
+    return data.url;
   };
 
-  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
+
+    const validImages = files.filter((file) => file.type.startsWith("image/") && file.size <= MAX_IMAGE_FILE_SIZE);
+    const skippedCount = files.length - validImages.length;
+    setUploadError(skippedCount ? "Some files were skipped. Choose image files that are 10MB or smaller." : "");
+
+    const addedImages = validImages.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      width: null,
+      height: null,
+    }));
+    syncPendingImages([...pendingImagesRef.current, ...addedImages]);
+
+    addedImages.forEach((pendingImage) => {
+      const preview = new Image();
+      preview.onload = () => {
+        setPendingImages((current) => {
+          const next = current.map((image) => image.previewUrl === pendingImage.previewUrl
+            ? { ...image, width: preview.naturalWidth, height: preview.naturalHeight }
+            : image);
+          pendingImagesRef.current = next;
+          return next;
+        });
+      };
+      preview.src = pendingImage.previewUrl;
+    });
+
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const removePendingImage = (previewUrl: string) => {
+    URL.revokeObjectURL(previewUrl);
+    syncPendingImages(pendingImagesRef.current.filter((image) => image.previewUrl !== previewUrl));
+  };
+
+  const uploadPendingImages = async () => {
+    if (!pendingImages.length || uploading) return;
     setUploading(true);
+    onUploadingChange(true);
+    setUploadError("");
+
+    const uploadedUrls: string[] = [];
+    const uploadedPreviewUrls = new Set<string>();
+    let failureMessage = "";
+    const resizeTo = getSafeMaxDimension(maxDimension);
+
     try {
-      const urls = await Promise.all(files.map(uploadFile));
-      onChange([...values, ...urls.filter(Boolean) as string[]]);
-    } catch {
-      alert("Upload failed. Please try again.");
+      for (const image of pendingImages) {
+        try {
+          const resizedFile = await resizeImageFile(image.file, resizeTo);
+          uploadedUrls.push(await uploadFile(resizedFile));
+          uploadedPreviewUrls.add(image.previewUrl);
+        } catch (error) {
+          failureMessage = `${image.file.name}: ${error instanceof Error ? error.message : "Upload failed."}`;
+          break;
+        }
+      }
+
+      if (uploadedUrls.length) onChange([...values, ...uploadedUrls]);
+      const remainingImages = pendingImagesRef.current.filter((image) => !uploadedPreviewUrls.has(image.previewUrl));
+      pendingImagesRef.current
+        .filter((image) => uploadedPreviewUrls.has(image.previewUrl))
+        .forEach((image) => URL.revokeObjectURL(image.previewUrl));
+      syncPendingImages(remainingImages);
+      if (failureMessage) {
+        setUploadError(`${failureMessage} Successfully uploaded images have been added; you can retry the remaining files.`);
+      }
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      onUploadingChange(false);
     }
   };
 
@@ -158,23 +305,106 @@ function MultiImageUploader({ values, onChange }: { values: string[]; onChange: 
         </div>
       )}
 
-      {/* Upload button */}
-      <div
-        className="border-2 border-dashed border-border rounded-xl p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+      <div className="rounded-xl border border-border bg-muted/20 p-3">
+        <label htmlFor="image-max-dimension" className="text-sm font-semibold">Maximum image dimension</label>
+        <div className="mt-2 flex items-center gap-2">
+          <Input
+            id="image-max-dimension"
+            type="number"
+            min={64}
+            max={MAX_IMAGE_DIMENSION}
+            step={1}
+            value={maxDimension}
+            onChange={(e) => setMaxDimension(e.target.value)}
+            className="w-28 rounded-lg"
+            disabled={uploading}
+          />
+          <span className="text-sm text-muted-foreground">px on the longest side</span>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Larger images are resized proportionally before upload. Animated GIFs stay unchanged.
+        </p>
+      </div>
+
+      {pendingImages.length > 0 && (
+        <div className="space-y-3 rounded-xl border border-border p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold">Preview selected images</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-lg text-muted-foreground"
+              disabled={uploading}
+              onClick={() => {
+                pendingImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+                syncPendingImages([]);
+              }}
+            >
+              Clear all
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {pendingImages.map((image) => {
+              const targetSize = image.width && image.height
+                ? getResizedDimensions(image.width, image.height, getSafeMaxDimension(maxDimension))
+                : null;
+              return (
+                <div key={image.previewUrl} className="flex min-w-0 items-center gap-3 rounded-lg bg-muted/30 p-2">
+                  <img
+                    src={image.previewUrl}
+                    alt={`Preview of ${image.file.name}`}
+                    className="h-20 w-20 flex-shrink-0 rounded-md border border-border bg-white object-contain"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold" title={image.file.name}>{image.file.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {image.width && image.height && targetSize
+                        ? image.file.type === "image/gif"
+                          ? `${image.width} × ${image.height}px · GIF unchanged`
+                          : `${image.width} × ${image.height}px → ${targetSize.width} × ${targetSize.height}px`
+                        : "Reading image dimensions…"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removePendingImage(image.previewUrl)}
+                    className="flex-shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    aria-label={`Remove ${image.file.name}`}
+                    disabled={uploading}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <Button
+            type="button"
+            className="w-full rounded-xl"
+            onClick={uploadPendingImages}
+            disabled={uploading || pendingImages.length === 0}
+          >
+            {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Resizing and uploading…</> : `Upload ${pendingImages.length} image${pendingImages.length === 1 ? "" : "s"}`}
+          </Button>
+        </div>
+      )}
+
+      {uploadError && <p role="alert" className="text-sm text-destructive">{uploadError}</p>}
+
+      {/* Select files, preview, resize, then upload */}
+      <button
+        type="button"
+        className="w-full rounded-xl border-2 border-dashed border-border p-4 text-center transition-colors hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
         onClick={() => fileRef.current?.click()}
         data-testid="upload-image-area"
+        disabled={uploading}
       >
-        {uploading ? (
-          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-        ) : (
-          <>
-            <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-1" />
-            <p className="text-sm text-muted-foreground">Click to upload images</p>
-            <p className="text-xs text-muted-foreground/60 mt-0.5">Select multiple files at once — JPG, PNG, GIF up to 10MB each</p>
-          </>
-        )}
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
-      </div>
+        <Upload className="mx-auto mb-1 h-6 w-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Click to select images</p>
+        <p className="mt-0.5 text-xs text-muted-foreground/60">Preview and resize before uploading — JPG, PNG, GIF up to 10MB each</p>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
 
       {/* URL input */}
       <div className="flex gap-2">
@@ -201,6 +431,7 @@ function AdminPortal() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [imagesUploading, setImagesUploading] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
@@ -272,7 +503,9 @@ function AdminPortal() {
           >
             Sign Out
           </Button>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            if (!imagesUploading) setIsOpen(open);
+          }}>
             <DialogTrigger asChild>
               <Button onClick={openNew} className="rounded-xl bg-slate-900">
                 <Plus className="mr-2 h-4 w-4" /> Add Product
@@ -300,7 +533,11 @@ function AdminPortal() {
                       <FormLabel>Product Images</FormLabel>
                       <p className="text-xs text-muted-foreground -mt-1">The first image is shown as the main photo. Use the handle icon to reorder.</p>
                       <FormControl>
-                        <MultiImageUploader values={field.value} onChange={field.onChange} />
+                        <MultiImageUploader
+                          values={field.value}
+                          onChange={field.onChange}
+                          onUploadingChange={setImagesUploading}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -308,7 +545,7 @@ function AdminPortal() {
                   <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem><FormLabel>Description</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <Button type="submit" className="w-full rounded-xl mt-6 h-12" disabled={isPending}>
+                  <Button type="submit" className="w-full rounded-xl mt-6 h-12" disabled={isPending || imagesUploading}>
                     {isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "Save"}
                   </Button>
                 </form>
