@@ -5,9 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, GripVertical } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, GripVertical, Eye } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Product } from "@shared/schema";
 
@@ -94,6 +94,16 @@ interface PendingImage {
   preserveAspectRatio: boolean;
 }
 
+interface ExistingImageEdit {
+  index: number;
+  url: string;
+  width: number | null;
+  height: number | null;
+  targetWidth: number | null;
+  targetHeight: number | null;
+  preserveAspectRatio: boolean;
+}
+
 const MAX_IMAGE_DIMENSION = 4096;
 const DEFAULT_IMAGE_DIMENSION = 1600;
 const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;
@@ -147,6 +157,29 @@ async function resizeImageFile(file: File, targetWidth: number, targetHeight: nu
   }
 }
 
+function isAnimatedGifUrl(url: string) {
+  return /\.gif(?:$|[?#])/i.test(url);
+}
+
+async function fileFromImageUrl(url: string): Promise<File> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Could not load this image for resizing.");
+
+  const blob = await response.blob();
+  const filename = decodeURIComponent(new URL(url, window.location.href).pathname.split("/").pop() || "image");
+  const extension = filename.split(".").pop()?.toLowerCase();
+  const fallbackType = extension === "jpg" || extension === "jpeg"
+    ? "image/jpeg"
+    : extension === "webp"
+      ? "image/webp"
+      : extension === "gif"
+        ? "image/gif"
+        : "image/png";
+  const type = blob.type.startsWith("image/") ? blob.type : fallbackType;
+  if (!type.startsWith("image/")) throw new Error("This URL is not an image.");
+  return new File([blob], filename, { type });
+}
+
 function MultiImageUploader({
   values,
   onChange,
@@ -160,6 +193,9 @@ function MultiImageUploader({
   const [urlInput, setUrlInput] = useState("");
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [uploadError, setUploadError] = useState("");
+  const [editingImage, setEditingImage] = useState<ExistingImageEdit | null>(null);
+  const [editingImageSaving, setEditingImageSaving] = useState(false);
+  const [editingImageError, setEditingImageError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingImagesRef = useRef<PendingImage[]>([]);
 
@@ -335,6 +371,91 @@ function MultiImageUploader({
     onChange(next);
   };
 
+  const openExistingImage = (index: number, url: string) => {
+    setEditingImageError("");
+    setEditingImage({
+      index,
+      url,
+      width: null,
+      height: null,
+      targetWidth: null,
+      targetHeight: null,
+      preserveAspectRatio: true,
+    });
+  };
+
+  const updateExistingDimension = (
+    field: "targetWidth" | "targetHeight",
+    value: string
+  ) => {
+    const requested = getSafeDimension(value);
+    setEditingImage((image) => {
+      if (!image) return image;
+      const updated = { ...image, [field]: requested };
+      if (image.preserveAspectRatio && requested !== null && image.width && image.height) {
+        const width = field === "targetWidth"
+          ? requested
+          : Math.round(requested * image.width / image.height);
+        const height = field === "targetHeight"
+          ? requested
+          : Math.round(requested * image.height / image.width);
+        const fitted = getResizedDimensions(width, height, MAX_IMAGE_DIMENSION);
+        updated.targetWidth = fitted.width;
+        updated.targetHeight = fitted.height;
+      }
+      return updated;
+    });
+  };
+
+  const updateExistingAspectRatio = (preserveAspectRatio: boolean) => {
+    setEditingImage((image) => {
+      if (!image) return image;
+      const updated = { ...image, preserveAspectRatio };
+      if (preserveAspectRatio && image.width && image.height) {
+        const width = image.targetWidth ?? image.width;
+        const height = Math.round(width * image.height / image.width);
+        const fitted = getResizedDimensions(width, height, MAX_IMAGE_DIMENSION);
+        updated.targetWidth = fitted.width;
+        updated.targetHeight = fitted.height;
+      }
+      return updated;
+    });
+  };
+
+  const saveExistingImageResize = async () => {
+    if (
+      !editingImage?.targetWidth ||
+      !editingImage.targetHeight ||
+      !editingImage.width ||
+      !editingImage.height ||
+      isAnimatedGifUrl(editingImage.url) ||
+      editingImageSaving
+    ) return;
+
+    setEditingImageSaving(true);
+    onUploadingChange(true);
+    setEditingImageError("");
+    try {
+      const originalFile = await fileFromImageUrl(editingImage.url);
+      const resizedFile = await resizeImageFile(originalFile, editingImage.targetWidth, editingImage.targetHeight);
+      const resizedUrl = await uploadFile(resizedFile);
+      const nextValues = [...values];
+      nextValues[editingImage.index] = resizedUrl;
+      onChange(nextValues);
+      setEditingImage(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not resize this image.";
+      setEditingImageError(
+        message === "Failed to fetch"
+          ? "This image host doesn't allow editing here. Try uploading the image file directly."
+          : message
+      );
+    } finally {
+      setEditingImageSaving(false);
+      onUploadingChange(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* Existing images */}
@@ -345,7 +466,18 @@ function MultiImageUploader({
               <button type="button" onClick={() => moveUp(i)} className="text-muted-foreground hover:text-foreground" title="Move up">
                 <GripVertical className="h-4 w-4" />
               </button>
-              <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg flex-shrink-0" />
+              <button
+                type="button"
+                onClick={() => openExistingImage(i, url)}
+                className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                title="Open image preview and resize"
+                aria-label={`Open image ${i + 1} preview and resize`}
+              >
+                <img src={url} alt="" className="h-full w-full rounded-lg object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <Eye className="h-5 w-5" />
+                </span>
+              </button>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground truncate">{url}</p>
                 {i === 0 && <span className="text-xs font-bold text-primary">Primary image</span>}
@@ -517,6 +649,157 @@ function MultiImageUploader({
           Add
         </Button>
       </div>
+
+      <Dialog
+        open={Boolean(editingImage)}
+        onOpenChange={(open) => {
+          if (!open && !editingImageSaving) {
+            setEditingImage(null);
+            setEditingImageError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[680px] rounded-3xl border-2 border-border p-6 max-h-[90vh] overflow-y-auto">
+          {editingImage && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl">Preview and edit image</DialogTitle>
+                <DialogDescription>
+                  Change the output dimensions below. The resized image replaces this one in the product form.
+                </DialogDescription>
+              </DialogHeader>
+
+              {(() => {
+                const isGif = isAnimatedGifUrl(editingImage.url);
+                const targetWidth = editingImage.targetWidth;
+                const targetHeight = editingImage.targetHeight;
+                const previewScale = targetWidth && targetHeight
+                  ? Math.min(560 / targetWidth, 350 / targetHeight)
+                  : null;
+                const hasChangedSize = Boolean(
+                  editingImage.width &&
+                  editingImage.height &&
+                  targetWidth &&
+                  targetHeight &&
+                  (editingImage.width !== targetWidth || editingImage.height !== targetHeight)
+                );
+
+                return (
+                  <>
+                    <div className="mt-2 flex min-h-[280px] items-center justify-center overflow-hidden rounded-xl bg-muted/30 p-4">
+                      <img
+                        src={editingImage.url}
+                        alt="Image preview"
+                        onLoad={(event) => {
+                          const width = event.currentTarget.naturalWidth;
+                          const height = event.currentTarget.naturalHeight;
+                          setEditingImage((current) => {
+                            if (!current || current.url !== editingImage.url || (current.width && current.height)) return current;
+                            const target = isGif
+                              ? { width, height }
+                              : getResizedDimensions(width, height, DEFAULT_IMAGE_DIMENSION);
+                            return {
+                              ...current,
+                              width,
+                              height,
+                              targetWidth: target.width,
+                              targetHeight: target.height,
+                            };
+                          });
+                        }}
+                        onError={() => setEditingImageError("Could not preview this image.")}
+                        className={previewScale ? "rounded object-fill" : "max-h-[350px] max-w-full rounded object-contain"}
+                        style={previewScale && targetWidth && targetHeight
+                          ? {
+                              width: `${Math.round(targetWidth * previewScale)}px`,
+                              height: `${Math.round(targetHeight * previewScale)}px`,
+                            }
+                          : undefined}
+                      />
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                      {editingImage.width && editingImage.height && targetWidth && targetHeight
+                        ? `Original ${editingImage.width} × ${editingImage.height}px · Preview ${targetWidth} × ${targetHeight}px`
+                        : "Loading image dimensions…"}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="space-y-1 text-sm font-semibold">
+                        Width (px)
+                        <Input
+                          type="number"
+                          min={1}
+                          max={MAX_IMAGE_DIMENSION}
+                          step={1}
+                          value={targetWidth ?? ""}
+                          onChange={(event) => updateExistingDimension("targetWidth", event.target.value)}
+                          onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }}
+                          className="rounded-lg"
+                          disabled={editingImageSaving || isGif || !editingImage.width}
+                        />
+                      </label>
+                      <label className="space-y-1 text-sm font-semibold">
+                        Height (px)
+                        <Input
+                          type="number"
+                          min={1}
+                          max={MAX_IMAGE_DIMENSION}
+                          step={1}
+                          value={targetHeight ?? ""}
+                          onChange={(event) => updateExistingDimension("targetHeight", event.target.value)}
+                          onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }}
+                          className="rounded-lg"
+                          disabled={editingImageSaving || isGif || !editingImage.height}
+                        />
+                      </label>
+                    </div>
+
+                    <label className={`flex items-center gap-2 text-sm ${isGif ? "text-muted-foreground" : "cursor-pointer"}`}>
+                      <input
+                        type="checkbox"
+                        checked={editingImage.preserveAspectRatio}
+                        onChange={(event) => updateExistingAspectRatio(event.target.checked)}
+                        disabled={editingImageSaving || isGif}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      Keep proportions
+                    </label>
+                    {isGif && (
+                      <p className="text-xs text-muted-foreground">
+                        Animated GIFs are preview-only here so their animation stays intact.
+                      </p>
+                    )}
+                    {editingImageError && <p role="alert" className="text-sm text-destructive">{editingImageError}</p>}
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={() => setEditingImage(null)}
+                        disabled={editingImageSaving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        className="rounded-xl"
+                        onClick={saveExistingImageResize}
+                        disabled={editingImageSaving || !hasChangedSize || isGif}
+                      >
+                        {editingImageSaving
+                          ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Resizing…</>
+                          : "Resize and replace"}
+                      </Button>
+                    </div>
+                  </>
+                );
+              })()}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
