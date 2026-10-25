@@ -166,7 +166,7 @@ export default function ProductDetail() {
             <div className="space-y-3">
               {/* Main image */}
               <div
-                className="relative h-[55vh] max-h-[520px] w-full rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-border/50 cursor-zoom-in group"
+                className="relative flex h-[55vh] max-h-[520px] w-full items-center justify-center rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-border/50 cursor-zoom-in group"
                 style={{ height: "min(55svh, 520px)" }}
                 onClick={() => openLightbox(selectedIndex)}
                 data-testid="product-image-zoom-trigger"
@@ -175,7 +175,7 @@ export default function ProductDetail() {
                   <img
                     src={currentImage}
                     alt={product.name}
-                    className="w-full h-full object-contain rounded-[1.5rem]"
+                    className="max-h-full max-w-full rounded-[1.5rem]"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">No image</div>
@@ -362,7 +362,7 @@ export default function ProductDetail() {
               src={currentImage}
               alt={product.name}
               draggable={false}
-              className="select-none"
+              className="select-none rounded-[1.5rem]"
               style={{
                 maxWidth: "100%",
                 maxHeight: "100%",
