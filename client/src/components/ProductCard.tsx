@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
-import { Plus } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
@@ -74,9 +74,10 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
               <Button
                 onClick={handleAddToCart}
                 size="icon"
+                aria-label={`Add ${product.name} to cart`}
                 className="rounded-2xl h-10 w-10 bg-primary/10 text-primary hover:bg-primary hover:text-white shadow-none transition-colors"
               >
-                <Plus className="h-5 w-5" />
+                <ShoppingBag className="h-5 w-5" />
               </Button>
             </div>
           </div>
