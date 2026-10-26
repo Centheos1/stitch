@@ -223,7 +223,13 @@ export default function ProductDetail() {
             {/* Details */}
             <div className="flex flex-col justify-center">
               <div className="mb-2">
-                <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                <span
+                  className={`inline-block px-4 py-1.5 rounded-full font-bold text-sm ${
+                    product.category.toLowerCase() === "christmas decorations"
+                      ? "border border-green-200 bg-green-100 text-green-700"
+                      : "bg-primary/10 text-primary"
+                  }`}
+                >
                   {product.category}
                 </span>
               </div>

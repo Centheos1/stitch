@@ -964,7 +964,17 @@ function AdminPortal() {
                         <span className="font-semibold">{product.name}</span>
                       </div>
                     </td>
-                    <td className="p-4"><span className="px-3 py-1 bg-muted rounded-full text-xs font-bold">{product.category}</span></td>
+                    <td className="p-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          product.category.toLowerCase() === "christmas decorations"
+                            ? "border border-green-200 bg-green-100 text-green-700"
+                            : "bg-muted"
+                        }`}
+                      >
+                        {product.category}
+                      </span>
+                    </td>
                     <td className="p-4 font-bold">${(product.price / 100).toFixed(2)}</td>
                     <td className="p-4">
                       <div className="flex gap-1">
