@@ -71,7 +71,7 @@ export default function Shop() {
               <Button 
                 variant="ghost" 
                 onClick={() => { setActiveCategory("All"); setSearchQuery(""); }}
-                className="w-full mt-4 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl"
+                className="w-full mt-4 text-black hover:text-black hover:bg-destructive/10 rounded-xl"
               >
                 <FilterX className="mr-2 h-4 w-4" /> Clear Filters
               </Button>
