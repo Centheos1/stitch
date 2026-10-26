@@ -75,7 +75,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
                 onClick={handleAddToCart}
                 size="icon"
                 aria-label={`Add ${product.name} to cart`}
-                className="rounded-2xl h-10 w-10 bg-primary/10 text-primary hover:bg-primary hover:text-white shadow-none transition-colors"
+                className="rounded-2xl h-10 w-10 border-2 border-border bg-white text-foreground shadow-sm transition-all hover:border-primary/50 hover:bg-white hover:text-primary hover:shadow-md"
               >
                 <ShoppingBag className="h-5 w-5" />
               </Button>
