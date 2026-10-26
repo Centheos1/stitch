@@ -208,8 +208,8 @@ export default function ProductDetail() {
                     <button
                       key={i}
                       onClick={() => setSelectedIndex(i)}
-                      className={`flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                        i === selectedIndex ? "border-primary shadow-md scale-105" : "border-transparent hover:border-border"
+                      className={`flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border transition-all ${
+                        i === selectedIndex ? "border-black shadow-sm scale-105" : "border-transparent hover:border-border"
                       }`}
                       data-testid={`thumbnail-${i}`}
                     >
@@ -350,7 +350,7 @@ export default function ProductDetail() {
                 <button
                   key={i}
                   onClick={(e) => { e.stopPropagation(); setSelectedIndex(i); applyZoom(1); }}
-                  className={`h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all ${i === selectedIndex ? "border-white scale-110" : "border-white/30 opacity-60 hover:opacity-100"}`}
+                  className={`h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border transition-all ${i === selectedIndex ? "border-black scale-110" : "border-white/30 opacity-60 hover:opacity-100"}`}
                 >
                   <img src={url} alt="" className="w-full h-full object-contain bg-white" />
                 </button>
