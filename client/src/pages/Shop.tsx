@@ -102,7 +102,7 @@ export default function Shop() {
               </p>
               <Button 
                 onClick={() => { setActiveCategory("All"); setSearchQuery(""); }}
-                className="mt-6 rounded-xl"
+                className="mt-6 rounded-xl border border-[#A8E3BC] bg-[#A8E3BC] text-[#14532D] hover:bg-[#98DDAF] hover:text-[#14532D] focus-visible:ring-[#A8E3BC]"
               >
                 View All Items
               </Button>
