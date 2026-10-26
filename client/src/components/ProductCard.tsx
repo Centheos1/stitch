@@ -27,6 +27,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
       case 'animals': return 'bg-orange-100 text-orange-700 border-orange-200';
       case 'bags': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'hair clips': return 'bg-pink-100 text-pink-700 border-pink-200';
+      case 'accessories': return 'bg-purple-100 text-purple-700 border-purple-200';
       case 'christmas decorations': return 'bg-green-100 text-green-700 border-green-200';
       default: return 'bg-purple-100 text-purple-700 border-purple-200';
     }

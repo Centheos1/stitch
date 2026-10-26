@@ -969,6 +969,8 @@ function AdminPortal() {
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
                           product.category.toLowerCase() === "christmas decorations"
                             ? "border border-green-200 bg-green-100 text-green-700"
+                            : product.category.toLowerCase() === "accessories"
+                              ? "border border-purple-200 bg-purple-100 text-purple-700"
                             : "bg-muted"
                         }`}
                       >

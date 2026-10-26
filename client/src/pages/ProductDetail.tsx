@@ -227,6 +227,8 @@ export default function ProductDetail() {
                   className={`inline-block px-4 py-1.5 rounded-full font-bold text-sm ${
                     product.category.toLowerCase() === "christmas decorations"
                       ? "border border-green-200 bg-green-100 text-green-700"
+                      : product.category.toLowerCase() === "accessories"
+                        ? "border border-purple-200 bg-purple-100 text-purple-700"
                       : "bg-primary/10 text-primary"
                   }`}
                 >
