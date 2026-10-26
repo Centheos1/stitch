@@ -24,15 +24,15 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
 
   const getCategoryStyles = (category: string) => {
     switch(category.toLowerCase()) {
-      case 'animals': return { badge: 'bg-orange-100 text-orange-700 border-orange-200', hoverBorder: 'hover:border-orange-200' };
-      case 'bags': return { badge: 'bg-blue-100 text-blue-700 border-blue-200', hoverBorder: 'hover:border-blue-200' };
-      case 'hair clips': return { badge: 'bg-pink-100 text-pink-700 border-pink-200', hoverBorder: 'hover:border-pink-200' };
-      case 'accessories': return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverBorder: 'hover:border-purple-200' };
-      case 'christmas decorations': return { badge: 'bg-green-100 text-green-700 border-green-200', hoverBorder: 'hover:border-green-200' };
-      default: return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverBorder: 'hover:border-purple-200' };
+      case 'animals': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'bags': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'hair clips': return 'bg-pink-100 text-pink-700 border-pink-200';
+      case 'accessories': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'christmas decorations': return 'bg-green-100 text-green-700 border-green-200';
+      default: return 'bg-purple-100 text-purple-700 border-purple-200';
     }
   };
-  const categoryStyles = getCategoryStyles(product.category);
+  const categoryBadgeStyles = getCategoryStyles(product.category);
 
   return (
     <motion.div
@@ -41,7 +41,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
       <Link href={`/product/${product.id}`} className="block group">
-        <div className={`h-full flex flex-col bg-white rounded-3xl p-4 shadow-sm border-2 border-transparent ${categoryStyles.hoverBorder} hover:shadow-xl transition-all duration-300`}>
+        <div className="h-full flex flex-col bg-white rounded-3xl p-4 shadow-sm border-2 border-transparent hover:border-gray-200 hover:shadow-xl transition-all duration-300">
 
           <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-muted mb-4">
             {primaryImage ? (
@@ -54,7 +54,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
             )}
             <div className="absolute top-3 left-3">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${categoryStyles.badge}`}>
+              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${categoryBadgeStyles}`}>
                 {product.category}
               </span>
             </div>
