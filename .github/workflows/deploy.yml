@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required so GitHub can issue an OIDC token for AWS.
+permissions:
+  id-token: write
+  contents: read
+
+# Run one deploy at a time. Never cancel a deploy that is already running.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      AWS_REGION: ap-southeast-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            infra/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      # Builds dist/public (React app, uploaded by CDK) and dist/index.cjs (API).
+      - name: Build client and server
+        run: npm run build
+
+      - name: Install CDK dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Assume AWS deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Builds the API image from the Dockerfile (port 3000) and deploys every stack.
+      - name: Deploy all stacks
+        working-directory: infra
+        run: npx cdk deploy --all --require-approval never

@@ -1,0 +1,24 @@
+{
+  "name": "stitch-infra",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.277.0",
+    "constructs": "^10.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "aws-cdk": "^2.1148.1",
+    "esbuild": "^0.25.12",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,6 +1,7 @@
 import { useRoute } from "wouter";
 import { useProduct } from "@/hooks/use-products";
-import { useCart } from "@/hooks/use-cart";
+import { unitPrice, useCart } from "@/hooks/use-cart";
+import type { SelectedOption } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Minus, Plus, ShoppingCart, Heart, ArrowLeft, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -9,12 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
-  const id = params?.id ? parseInt(params.id, 10) : 0;
+  const id = params?.id ?? "";
 
   const { data: product, isLoading, error } = useProduct(id);
   const addItem = useCart((state) => state.addItem);
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -27,6 +29,11 @@ export default function ProductDetail() {
 
   const images = product?.imageUrls ?? [];
   const currentImage = images[selectedIndex] ?? images[0] ?? "";
+  const chosen: SelectedOption[] = (product?.options ?? []).map((option) => ({
+    name: option.name,
+    choice: selectedOptions[option.name] || option.choices[0]?.label || "",
+  }));
+  const price = product ? unitPrice(product, chosen) : 0;
 
   const clampPan = useCallback((nextPan: { x: number; y: number }, currentZoom: number) => {
     const container = lightboxContainerRef.current;
@@ -143,7 +150,8 @@ export default function ProductDetail() {
   }
 
   const handleAddToCart = () => {
-    addItem(product, quantity);
+    if (!product) return;
+    addItem(product, quantity, chosen);
     toast({
       title: "Added to cart! 🛍️",
       description: `${quantity}x ${product.name} added.`,
@@ -241,7 +249,7 @@ export default function ProductDetail() {
               </h1>
 
               <div className="font-display text-4xl font-bold text-secondary mb-6">
-                ${(product.price / 100).toFixed(2)}
+                ${(price / 100).toFixed(2)}
               </div>
 
               <p className="text-lg text-muted-foreground mb-10 leading-relaxed">
@@ -249,6 +257,27 @@ export default function ProductDetail() {
               </p>
 
               <div className="bg-background rounded-3xl p-6 border border-border/50 mb-10">
+                {(product.options ?? []).map((option) => (
+                  <div key={option.name} className="mb-6">
+                    <div className="font-bold text-foreground mb-2">{option.name}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {option.choices.map((choice) => {
+                        const active = (selectedOptions[option.name] || option.choices[0]?.label) === choice.label;
+                        return (
+                          <button
+                            key={choice.label}
+                            type="button"
+                            onClick={() => setSelectedOptions((current) => ({ ...current, [option.name]: choice.label }))}
+                            className={`rounded-xl border px-4 py-2 text-sm font-semibold ${active ? "border-slate-900 bg-slate-900 text-white" : "border-border bg-white"}`}
+                          >
+                            {choice.label}
+                            {choice.priceDelta > 0 ? ` +$${(choice.priceDelta / 100).toFixed(2)}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
                 <div className="flex items-center gap-4 mb-6">
                   <div className="font-bold text-foreground">Quantity:</div>
                   <div className="flex items-center bg-white rounded-xl border border-border overflow-hidden shadow-sm">

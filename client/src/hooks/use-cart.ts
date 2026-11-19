@@ -1,17 +1,33 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Product } from '@shared/schema';
+import type { Product, SelectedOption } from '@shared/schema';
 
 export interface CartItem {
   product: Product;
   quantity: number;
+  options: SelectedOption[];
+}
+
+export function cartLineKey(item: { product: { id: string }; options?: SelectedOption[] }): string {
+  const options = item.options ?? [];
+  return `${item.product.id}|${options.map((option) => `${option.name}=${option.choice}`).join("|")}`;
+}
+
+export function unitPrice(product: Product, options: SelectedOption[] = []): number {
+  let price = product.price;
+  for (const selected of options) {
+    const group = product.options?.find((option) => option.name === selected.name);
+    const choice = group?.choices.find((entry) => entry.label === selected.choice);
+    price += choice?.priceDelta ?? 0;
+  }
+  return price;
 }
 
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number) => void;
-  removeItem: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  addItem: (product: Product, quantity?: number, options?: SelectedOption[]) => void;
+  removeItem: (lineKey: string) => void;
+  updateQuantity: (lineKey: string, quantity: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
@@ -22,32 +38,36 @@ export const useCart = create<CartState>()(
     (set, get) => ({
       items: [],
       
-      addItem: (product, quantity = 1) => {
+      addItem: (product, quantity = 1, options = []) => {
         set((state) => {
-          const existingItem = state.items.find((i) => i.product.id === product.id);
+          const line = { product, options };
+          const key = cartLineKey(line);
+          const existingItem = state.items.find((item) => cartLineKey({ ...item, options: item.options ?? [] }) === key);
           if (existingItem) {
             return {
-              items: state.items.map((i) =>
-                i.product.id === product.id
-                  ? { ...i, quantity: i.quantity + quantity }
-                  : i
+              items: state.items.map((item) =>
+                cartLineKey({ ...item, options: item.options ?? [] }) === key
+                  ? { ...item, options: item.options ?? [], quantity: item.quantity + quantity }
+                  : item
               ),
             };
           }
-          return { items: [...state.items, { product, quantity }] };
+          return { items: [...state.items, { product, quantity, options }] };
         });
       },
 
-      removeItem: (productId) => {
+      removeItem: (lineKey) => {
         set((state) => ({
-          items: state.items.filter((i) => i.product.id !== productId),
+          items: state.items.filter((item) => cartLineKey({ ...item, options: item.options ?? [] }) !== lineKey),
         }));
       },
 
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (lineKey, quantity) => {
         set((state) => ({
-          items: state.items.map((i) =>
-            i.product.id === productId ? { ...i, quantity: Math.max(1, quantity) } : i
+          items: state.items.map((item) =>
+            cartLineKey({ ...item, options: item.options ?? [] }) === lineKey
+              ? { ...item, options: item.options ?? [], quantity: Math.max(1, quantity) }
+              : item
           ),
         }));
       },
@@ -57,7 +77,7 @@ export const useCart = create<CartState>()(
       getCartTotal: () => {
         const state = get();
         return state.items.reduce(
-          (total, item) => total + item.product.price * item.quantity,
+          (total, item) => total + unitPrice(item.product, item.options ?? []) * item.quantity,
           0
         );
       },
@@ -68,7 +88,7 @@ export const useCart = create<CartState>()(
       },
     }),
     {
-      name: 'sti-cart-storage',
+      name: 'stitch-cart-v2',
     }
   )
 );

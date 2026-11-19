@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useCart } from "@/hooks/use-cart";
+import { cartLineKey, unitPrice, useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 
@@ -38,9 +38,12 @@ export default function Cart() {
         
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-6">
-          {items.map((item) => (
+          {items.map((item) => {
+            const key = cartLineKey({ ...item, options: item.options ?? [] });
+            const price = unitPrice(item.product, item.options ?? []);
+            return (
             <div 
-              key={item.product.id} 
+              key={key} 
               className="flex flex-col sm:flex-row bg-white p-4 rounded-3xl border border-border shadow-sm gap-6 items-center"
             >
               <div className="w-full sm:w-32 h-32 flex-shrink-0 bg-muted rounded-2xl overflow-hidden">
@@ -54,21 +57,26 @@ export default function Cart() {
               <div className="flex-1 w-full flex flex-col justify-center">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-display text-xl font-bold">{item.product.name}</h3>
-                  <span className="font-display font-bold text-lg">${(item.product.price / 100).toFixed(2)}</span>
+                  <span className="font-display font-bold text-lg">${(price / 100).toFixed(2)}</span>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{item.product.category}</p>
+                <p className="text-sm text-muted-foreground mb-1">{item.product.category}</p>
+                {(item.options ?? []).length > 0 && (
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {(item.options ?? []).map((option) => `${option.name}: ${option.choice}`).join(" · ")}
+                  </p>
+                )}
                 
                 <div className="flex items-center justify-between mt-auto">
                   <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
                     <button 
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(key, item.quantity - 1)}
                       className="px-3 py-2 hover:bg-muted text-foreground transition-colors"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
                     <div className="w-10 text-center font-bold">{item.quantity}</div>
                     <button 
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(key, item.quantity + 1)}
                       className="px-3 py-2 hover:bg-muted text-foreground transition-colors"
                     >
                       <Plus className="h-4 w-4" />
@@ -78,7 +86,7 @@ export default function Cart() {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => removeItem(item.product.id)}
+                    onClick={() => removeItem(key)}
                     className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
                   >
                     <Trash2 className="h-5 w-5" />
@@ -86,7 +94,8 @@ export default function Cart() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Order Summary */}

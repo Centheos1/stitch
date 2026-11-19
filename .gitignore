@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+.aws/
+infra/cdk.out/
+# Shell history for the workspace terminal
+.vscode/zsh/.zsh_history

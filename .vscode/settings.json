@@ -1,0 +1,9 @@
+{
+    "terminal.integrated.env.osx": {
+        "AWS_CONFIG_FILE": "${workspaceFolder}/.aws/config",
+        "AWS_SHARED_CREDENTIALS_FILE": "${workspaceFolder}/.aws/credentials",
+        "AWS_PROFILE": "stitch",
+        "AWS_REGION": "ap-southeast-2",
+        "ZDOTDIR": "${workspaceFolder}/.vscode/zsh"
+    }
+}

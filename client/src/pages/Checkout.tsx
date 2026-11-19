@@ -49,9 +49,9 @@ export default function Checkout() {
         >
           <CheckCircle2 className="h-24 w-24" />
         </motion.div>
-        <h1 className="font-display text-4xl font-bold mb-4">Yay! Order Confirmed! 🎉</h1>
+        <h1 className="font-display text-4xl font-bold mb-4">Request received</h1>
         <p className="text-xl text-muted-foreground mb-8 max-w-md">
-          Thank you for your purchase. We're packing up your colorful goodies right now!
+          Thank you. We'll email you about the details and payment. Nothing has been charged.
         </p>
         <Button onClick={() => setLocation("/")} size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold">
           Return Home
@@ -64,13 +64,12 @@ export default function Checkout() {
     const orderItems = items.map(item => ({
       productId: item.product.id,
       quantity: item.quantity,
-      priceAtTime: item.product.price,
+      options: item.options ?? [],
     }));
 
     createOrder.mutate(
       {
         ...data,
-        totalAmount,
         items: orderItems,
       },
       {
@@ -145,7 +144,7 @@ export default function Checkout() {
               {createOrder.isPending ? (
                 <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> Processing...</>
               ) : (
-                "Place Order"
+                "Send request"
               )}
             </Button>
           </form>

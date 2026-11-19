@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, GripVertical, Eye } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, GripVertical, Eye, KeyRound } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { OrdersPanel } from "@/components/admin/OrdersPanel";
+import { InboxPanel } from "@/components/admin/InboxPanel";
 import type { Product } from "@shared/schema";
 
 const isValidImageSrc = (val: string) =>
-  val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://");
+  val.startsWith("/images/") || val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://");
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -24,7 +26,107 @@ const productFormSchema = z.object({
 
 type FormValues = z.infer<typeof productFormSchema>;
 
-const SESSION_KEY = "stitch_admin_auth";
+function errorMessage(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : "";
+  const jsonStart = message.indexOf("{");
+  if (jsonStart >= 0) {
+    try {
+      const body = JSON.parse(message.slice(jsonStart)) as { message?: string };
+      if (body.message) return body.message;
+    } catch {
+      // The response was not JSON.
+    }
+  }
+  return fallback;
+}
+
+function ChangePassword() {
+  const [open, setOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const close = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setError("");
+      setSaved(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSaved(false);
+    if (newPassword.trim() !== confirmPassword.trim()) {
+      setError("New passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/password", { currentPassword, newPassword });
+      const body = await res.json().catch(() => null);
+      if (!body || body.success !== true) {
+        setError("Could not update the password.");
+        return;
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setSaved(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.startsWith("401") && message.includes("Sign in required")) {
+        window.location.assign("/admin");
+        return;
+      }
+      setError(errorMessage(err, "Could not update the password."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="rounded-xl text-muted-foreground" data-testid="button-change-password">
+          <KeyRound className="mr-2 h-4 w-4" /> Password
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[420px] rounded-3xl border-2 border-border p-8">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">Change password</DialogTitle>
+          <DialogDescription>This replaces the admin password. You stay signed in.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div>
+            <label className="text-sm font-semibold mb-1 block" htmlFor="current-password">Current password</label>
+            <Input id="current-password" type="password" className="rounded-xl" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" data-testid="input-current-password" />
+          </div>
+          <div>
+            <label className="text-sm font-semibold mb-1 block" htmlFor="new-password">New password</label>
+            <Input id="new-password" type="password" className="rounded-xl" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" data-testid="input-new-password" />
+          </div>
+          <div>
+            <label className="text-sm font-semibold mb-1 block" htmlFor="confirm-password">Confirm new password</label>
+            <Input id="confirm-password" type="password" className="rounded-xl" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" data-testid="input-confirm-password" />
+          </div>
+          {error && <p className="text-destructive text-sm">{error}</p>}
+          {saved && <p className="text-sm text-green-700">Password updated.</p>}
+          <Button type="submit" className="w-full rounded-xl h-12" disabled={loading || !currentPassword || !newPassword || !confirmPassword} data-testid="button-save-password">
+            {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Update password"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   const [password, setPassword] = useState("");
@@ -37,10 +139,16 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
     setLoading(true);
     try {
       await apiRequest("POST", "/api/admin/login", { password });
-      sessionStorage.setItem(SESSION_KEY, "true");
       onSuccess();
-    } catch {
-      setError("Incorrect password. Please try again.");
+    } catch (err) {
+      const status = err instanceof Error ? Number(err.message.split(":")[0]) : 0;
+      if (status === 429) {
+        setError("Too many attempts. Try again in a few minutes.");
+      } else if (status >= 500) {
+        setError("Sign in is unavailable. Try again shortly.");
+      } else {
+        setError("Incorrect password. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -252,12 +360,24 @@ function MultiImageUploader({
   }, []);
 
   const uploadFile = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("image", file);
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
-    const data = await res.json().catch(() => ({})) as { url?: string; message?: string };
-    if (!res.ok || !data.url) {
+    const granted = await fetch("/api/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ contentType: file.type }),
+    });
+    const data = await granted.json().catch(() => ({})) as { uploadUrl?: string; url?: string; message?: string };
+    if (!granted.ok || !data.uploadUrl || !data.url) {
       throw new Error(data.message || "Upload failed. Please try again.");
+    }
+
+    const uploaded = await fetch(data.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!uploaded.ok) {
+      throw new Error("Saving the image failed. Please try again.");
     }
     return data.url;
   };
@@ -811,8 +931,10 @@ function AdminPortal() {
   const deleteProduct = useDeleteProduct();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [imagesUploading, setImagesUploading] = useState(false);
+  const [tab, setTab] = useState<"inventory" | "orders" | "inbox">("inventory");
+  const [optionDraft, setOptionDraft] = useState<{ name: string; choices: { label: string; priceStr: string }[] }[]>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
@@ -822,6 +944,7 @@ function AdminPortal() {
   const openNew = () => {
     setEditingId(null);
     form.reset({ name: "", description: "", priceStr: "", category: "", imageUrls: [] });
+    setOptionDraft([]);
     setIsOpen(true);
   };
 
@@ -834,10 +957,17 @@ function AdminPortal() {
       category: product.category,
       imageUrls: product.imageUrls ?? [],
     });
+    setOptionDraft((product.options ?? []).map((option) => ({
+      name: option.name,
+      choices: option.choices.map((choice) => ({
+        label: choice.label,
+        priceStr: (choice.priceDelta / 100).toFixed(2),
+      })),
+    })));
     setIsOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this item?")) {
       deleteProduct.mutate(id);
     }
@@ -845,12 +975,22 @@ function AdminPortal() {
 
   const onSubmit = (data: FormValues) => {
     const price = Math.round(parseFloat(data.priceStr) * 100);
+    const options = optionDraft
+      .filter((option) => option.name.trim() && option.choices.some((choice) => choice.label.trim()))
+      .map((option) => ({
+        name: option.name.trim(),
+        choices: option.choices.filter((choice) => choice.label.trim()).map((choice) => ({
+          label: choice.label.trim(),
+          priceDelta: Math.round((Number(choice.priceStr) || 0) * 100),
+        })),
+      }));
     const payload = {
       name: data.name,
       description: data.description,
       price,
       category: data.category,
       imageUrls: data.imageUrls,
+      options,
     };
 
     if (editingId) {
@@ -871,19 +1011,25 @@ function AdminPortal() {
           </div>
           <div>
             <h1 className="font-display text-2xl font-bold">Admin Portal</h1>
-            <p className="text-sm text-muted-foreground">Manage your magical inventory</p>
+            <p className="text-sm text-muted-foreground">{tab === "orders" ? "Review requests and reply by email" : tab === "inbox" ? "Shop email for info@ and audrey@" : "Manage your magical inventory"}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap justify-end">
+          <ChangePassword />
           <Button
             variant="outline"
             size="sm"
             className="rounded-xl text-muted-foreground"
-            onClick={() => { sessionStorage.removeItem(SESSION_KEY); window.location.reload(); }}
+            onClick={() => {
+              void apiRequest("POST", "/api/admin/logout").finally(() => {
+                window.location.assign("/admin");
+              });
+            }}
           >
             Sign Out
           </Button>
+          {tab === "inventory" && (
           <Dialog open={isOpen} onOpenChange={(open) => {
             if (!imagesUploading) setIsOpen(open);
           }}>
@@ -906,6 +1052,28 @@ function AdminPortal() {
                   <FormField control={form.control} name="category" render={({ field }) => (
                     <FormItem><FormLabel>Category</FormLabel><FormControl><Input className="rounded-xl" placeholder="e.g. Animals, Bags..." {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <div className="space-y-3 rounded-xl border border-border p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">Options</p>
+                      <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={() => setOptionDraft((current) => [...current, { name: "", choices: [{ label: "", priceStr: "0.00" }] }])}>
+                        Add option
+                      </Button>
+                    </div>
+                    {optionDraft.map((option, optionIndex) => (
+                      <div key={optionIndex} className="space-y-2">
+                        <Input className="rounded-xl" placeholder="Option name, e.g. Colour" value={option.name} onChange={(event) => setOptionDraft((current) => current.map((entry, index) => index === optionIndex ? { ...entry, name: event.target.value } : entry))} />
+                        {option.choices.map((choice, choiceIndex) => (
+                          <div key={choiceIndex} className="flex gap-2">
+                            <Input className="rounded-xl" placeholder="Choice" value={choice.label} onChange={(event) => setOptionDraft((current) => current.map((entry, index) => index === optionIndex ? { ...entry, choices: entry.choices.map((item, itemIndex) => itemIndex === choiceIndex ? { ...item, label: event.target.value } : item) } : entry))} />
+                            <Input className="rounded-xl w-28" placeholder="Extra $" value={choice.priceStr} onChange={(event) => setOptionDraft((current) => current.map((entry, index) => index === optionIndex ? { ...entry, choices: entry.choices.map((item, itemIndex) => itemIndex === choiceIndex ? { ...item, priceStr: event.target.value } : item) } : entry))} />
+                          </div>
+                        ))}
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setOptionDraft((current) => current.map((entry, index) => index === optionIndex ? { ...entry, choices: [...entry.choices, { label: "", priceStr: "0.00" }] } : entry))}>
+                          Add choice
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                   <FormField control={form.control} name="priceStr" render={({ field }) => (
                     <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input className="rounded-xl" placeholder="19.99" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -933,9 +1101,17 @@ function AdminPortal() {
               </Form>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 
+      <div className="flex gap-2 mb-6">
+        <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("inventory")}>Inventory</Button>
+        <Button type="button" variant={tab === "orders" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("orders")}>Orders</Button>
+        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("inbox")}>Inbox</Button>
+      </div>
+
+      {tab === "orders" ? <OrdersPanel /> : tab === "inbox" ? <InboxPanel /> : (
       <div className="bg-white rounded-3xl shadow-sm border border-border overflow-hidden">
         {isLoading ? (
           <div className="p-12 text-center text-muted-foreground animate-pulse">Loading inventory...</div>
@@ -1003,14 +1179,36 @@ function AdminPortal() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
 
 export default function Admin() {
-  const [authenticated, setAuthenticated] = useState(
-    sessionStorage.getItem(SESSION_KEY) === "true"
-  );
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest("GET", "/api/admin/session")
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (!cancelled) setAuthenticated(body?.success === true);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthenticated(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (authenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!authenticated) {
     return <AdminLogin onSuccess={() => setAuthenticated(true)} />;

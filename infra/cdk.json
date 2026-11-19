@@ -1,0 +1,8 @@
+{
+  "app": "npx tsx bin/stitch.ts",
+  "context": {
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws"],
+    "@aws-cdk/core:defaultCrossStackReferences": "strong"
+  }
+}

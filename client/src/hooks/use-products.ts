@@ -28,11 +28,11 @@ export function useProducts(category?: string, search?: string) {
   });
 }
 
-export function useProduct(id: number) {
+export function useProduct(id: string) {
   return useQuery({
     queryKey: [api.products.get.path, id],
     queryFn: async () => {
-      if (!id || isNaN(id)) return null;
+      if (!id) return null;
       const url = buildUrl(api.products.get.path, { id });
       const res = await fetch(url, { credentials: "omit" });
       
@@ -77,7 +77,7 @@ export function useCreateProduct() {
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: number } & Partial<ProductInput>) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<ProductInput>) => {
       const validated = api.products.update.input.parse(updates);
       const url = buildUrl(api.products.update.path, { id });
       
@@ -109,7 +109,7 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const url = buildUrl(api.products.delete.path, { id });
       const res = await fetch(url, { method: api.products.delete.method });
       

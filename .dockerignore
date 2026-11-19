@@ -1,0 +1,9 @@
+.git
+.github
+.aws
+.vscode
+node_modules
+dist
+infra/node_modules
+infra/cdk.out
+*.md

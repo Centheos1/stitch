@@ -13,6 +13,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
   const primaryImage = product.imageUrls?.[0] ?? "";
 
   const handleAddToCart = (e: React.MouseEvent) => {
+    if ((product.options ?? []).length > 0) return;
     e.preventDefault();
     addItem(product);
     toast({
