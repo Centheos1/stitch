@@ -19,11 +19,11 @@ export const productSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   description: z.string().min(1),
-  madeFrom: z.string().default(""),
+  madeFrom: z.string().optional(), // older products may not have it
   price: z.number().int(), // in cents
   category: z.string().min(1),
   imageUrls: z.array(z.string()),
-  imageBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#ffffff"),
+  imageBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), // older products may not have it; UI falls back to #ffffff
   options: z.array(productOptionSchema).optional(),
   createdAt: z.string(),
 });

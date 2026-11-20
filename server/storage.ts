@@ -180,7 +180,7 @@ export class DynamoStorage implements IStorage {
       product.description,
       product.madeFrom,
       product.category,
-    ].some((field) => field.toLowerCase().includes(needle)));
+    ].some((field) => (field ?? "").toLowerCase().includes(needle)));
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -193,6 +193,8 @@ export class DynamoStorage implements IStorage {
   async createProduct(product: InsertProduct): Promise<Product> {
     const created: Product = {
       ...product,
+      madeFrom: product.madeFrom ?? "",
+      imageBackgroundColor: product.imageBackgroundColor ?? "#ffffff",
       imageUrls: product.imageUrls ?? [],
       id: randomUUID(),
       createdAt: new Date().toISOString(),
