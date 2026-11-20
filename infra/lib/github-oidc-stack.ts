@@ -5,6 +5,10 @@ import { Construct } from "constructs";
 export interface GithubOidcStackProps extends cdk.StackProps {
   /** GitHub repository in owner/name form. */
   repository: string;
+  /** Permanent GitHub user or organization id. Repositories created after 15 July 2026 put this in the token. */
+  ownerId: string;
+  /** Permanent GitHub repository id. */
+  repositoryId: string;
   /** The only branch allowed to assume the deploy role. */
   branch: string;
 }
@@ -32,6 +36,8 @@ export class GithubOidcStack extends cdk.Stack {
       `arn:${this.partition}:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
     );
 
+    const [owner, name] = props.repository.split("/");
+    const subject = `repo:${owner}@${props.ownerId}/${name}@${props.repositoryId}:ref:refs/heads/${props.branch}`;
     const deployRole = new iam.Role(this, "GithubDeployRole", {
       roleName: "stitch-github-deploy",
       description: `Assumed by GitHub Actions from ${props.repository} on ${props.branch}`,
@@ -41,9 +47,7 @@ export class GithubOidcStack extends cdk.Stack {
         {
           StringEquals: {
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          },
-          StringLike: {
-            "token.actions.githubusercontent.com:sub": `repo:${props.repository}:ref:refs/heads/${props.branch}`,
+            "token.actions.githubusercontent.com:sub": subject,
           },
         },
         "sts:AssumeRoleWithWebIdentity",

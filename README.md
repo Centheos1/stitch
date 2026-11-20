@@ -125,7 +125,9 @@ Pushing to `main` deploys everything. The workflow in `.github/workflows/deploy.
 To set up GitHub:
 
 1. Deploy `StitchGithubOidcStack` and copy the `DeployRoleArn` output.
-2. In the repo, go to **Settings → Secrets and variables → Actions → Variables** and add `AWS_DEPLOY_ROLE_ARN` with that value.
+2. In the repo, go to **Settings → Secrets and variables → Actions → Variables** and add `AWS_DEPLOY_ROLE_ARN` with that value. It is `arn:aws:iam::437329951890:role/stitch-github-deploy`.
+
+The role trusts `repo:Centheos1@23650906/stitch@1444934289:ref:refs/heads/main`. GitHub includes those permanent ids because this repository was created after 15 July 2026. A trust rule that only names `Centheos1/stitch` is rejected.
 
 Watch the run in the **Actions** tab. Since there's no pull request requirement, every push to `main` goes live. Check the diff before you push.
 

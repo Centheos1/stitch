@@ -41,5 +41,7 @@ new GithubOidcStack(app, "StitchGithubOidcStack", {
   env: { account, region: "ap-southeast-2" },
   description: "GitHub Actions OIDC deploy role for STITCH",
   repository: "Centheos1/stitch",
+  ownerId: "23650906",
+  repositoryId: "1444934289",
   branch: "main",
 });
