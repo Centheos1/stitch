@@ -173,9 +173,14 @@ export class DynamoStorage implements IStorage {
       products = items.map(toProduct);
     }
 
-    if (!search) return products;
-    const needle = search.toLowerCase();
-    return products.filter((product) => product.name.toLowerCase().includes(needle));
+    const needle = search?.trim().toLowerCase();
+    if (!needle) return products;
+    return products.filter((product) => [
+      product.name,
+      product.description,
+      product.madeFrom,
+      product.category,
+    ].some((field) => field.toLowerCase().includes(needle)));
   }
 
   async getProduct(id: string): Promise<Product | undefined> {

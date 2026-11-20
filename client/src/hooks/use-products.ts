@@ -14,6 +14,7 @@ function parseWithLogging<T>(schema: z.ZodSchema<T>, data: unknown, label: strin
 export function useProducts(category?: string, search?: string) {
   return useQuery({
     queryKey: [api.products.list.path, { category, search }],
+    placeholderData: (previousData) => previousData,
     queryFn: async () => {
       const url = new URL(api.products.list.path, window.location.origin);
       if (category) url.searchParams.append("category", category);

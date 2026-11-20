@@ -7,11 +7,11 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "NODE_ENV=development node --env-file-if-exists=.env --import tsx server/index.ts",
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "migrate:postgres": "tsx script/migrate-from-postgres.ts"
+    "migrate:postgres": "node --env-file-if-exists=.env --import tsx script/migrate-from-postgres.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1171.0",

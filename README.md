@@ -41,13 +41,14 @@ Never commit `.aws/`, and never put keys in `.env` files that get committed.
 
 ```bash
 npm ci
-export TABLE_NAME=stitch
 npm run dev
 ```
 
-Open http://localhost:3000. The port defaults to 3000 because macOS can reserve 5000. Set `PORT` to change it.
+Copy `.env.example` to `.env` for local settings. npm loads `.env` for both `npm run dev` and the Postgres migration. The local server listens on [http://localhost:3000](http://localhost:3000); change `PORT` in `.env` to use another port.
 
 **Warning:** local development reads and writes the live DynamoDB table `stitch`. It's the same table the shop uses. Creating, editing, or deleting products locally changes the live shop. Product photos under `/images/...` are proxied from the live CDN, so they appear locally too. Admin sign-in uses the same Secrets Manager password as the live site.
+
+This checkout can use project-local Node.js and PostgreSQL binaries under `.local-tools/`, with Postgres data under `.local-data/`. If that existing local database contains the old shop data, run `./script/dev-local.sh` to start it and the app. The script does not run schema push against the migration source.
 
 Other scripts:
 
@@ -157,9 +158,11 @@ UPLOADS_DIR=./server/uploads \
 npm run migrate:postgres -- --dry-run
 ```
 
-`--dry-run` only prints the counts. When it looks right, run it without that flag and add `--replace`. Without `--replace`, the script stops if the table already has products.
+`--dry-run` prints the source counts, image validation count, and any destination key collisions. Review them before running live.
 
 The machine needs AWS credentials that can write to the `stitch` table and the images bucket.
+
+Run `--dry-run` first. It reads the source database, validates local image files, and scans the destination table without writing to AWS. A live run without `--replace` stops if any destination keys already exist. `--replace` overwrites only keys represented by the source database; it does not clear the table. Keep the source database intact until you have checked the migrated products, orders, and images.
 
 ## Admin access
 

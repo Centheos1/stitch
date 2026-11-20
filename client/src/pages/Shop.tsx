@@ -12,11 +12,13 @@ export default function Shop() {
 
   const [activeCategory, setActiveCategory] = useState(urlCategory || "All");
   const [searchQuery, setSearchQuery] = useState("");
+  const normalizedSearch = searchQuery.trim();
+  const isSearching = normalizedSearch.length > 0;
 
   const { data: allProducts } = useProducts();
   const { data: products, isLoading } = useProducts(
-    activeCategory === "All" ? undefined : activeCategory,
-    searchQuery || undefined
+    isSearching || activeCategory === "All" ? undefined : activeCategory,
+    normalizedSearch || undefined
   );
 
   const categories = ["All", ...Array.from(new Set((allProducts ?? []).map((p) => p.category))).sort()];
@@ -26,14 +28,14 @@ export default function Shop() {
       <div className="text-center max-w-2xl mx-auto mb-16">
         <h1 className="font-display text-5xl font-bold mb-4 rainbow-text">The Shop</h1>
         <p className="text-lg text-muted-foreground">
-          Browse our entire collection of lovingly crafted handmade items. Pick your favorites and bring some color home!
+          Browse our entire collection of lovingly crafted handmade items. Pick your favourites and bring some colour home!
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className={`flex flex-col gap-8 ${isSearching ? "" : "lg:flex-row"}`}>
         
         {/* Sidebar Filters */}
-        <div className="w-full lg:w-64 flex-shrink-0 space-y-8">
+        <div className={`w-full space-y-8 ${isSearching ? "" : "lg:w-64 lg:flex-shrink-0"}`}>
           
           <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
             <h3 className="font-display font-bold text-lg mb-4">Search</h3>
@@ -49,38 +51,57 @@ export default function Shop() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
-            <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
-            <div className="flex flex-col gap-2">
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`text-left px-4 py-3 rounded-xl transition-colors font-semibold ${
-                    activeCategory === cat 
-                      ? "bg-[#A8E3BC] text-[#14532D] shadow-md shadow-[#A8E3BC]/40"
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
+          {isSearching ? (
+            <Button
+              variant="ghost"
+              onClick={() => setSearchQuery("")}
+              className="w-full text-black hover:text-black hover:bg-muted rounded-xl focus-visible:ring-[#A8E3BC]"
+            >
+              <FilterX className="mr-2 h-4 w-4" /> Clear Search
+            </Button>
+          ) : (
+            <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
+              <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
+              <div className="flex flex-col gap-2">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className={`text-left px-4 py-3 rounded-xl transition-colors font-semibold ${
+                      activeCategory === cat
+                        ? "bg-[#A8E3BC] text-[#14532D] shadow-md shadow-[#A8E3BC]/40"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {activeCategory !== "All" && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setActiveCategory("All")}
+                  className="w-full mt-4 text-black hover:text-black hover:bg-gray-100 rounded-xl"
                 >
-                  {cat}
-                </button>
-              ))}
+                  <FilterX className="mr-2 h-4 w-4" /> Clear Filters
+                </Button>
+              )}
             </div>
-            
-            {(activeCategory !== "All" || searchQuery) && (
-              <Button 
-                variant="ghost" 
-                onClick={() => { setActiveCategory("All"); setSearchQuery(""); }}
-                className="w-full mt-4 text-black hover:text-black hover:bg-destructive/10 rounded-xl"
-              >
-                <FilterX className="mr-2 h-4 w-4" /> Clear Filters
-              </Button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Product Grid */}
         <div className="flex-1">
+          {isSearching && !isLoading && (
+            <div className="mb-6">
+              <h2 className="font-display text-2xl font-bold">Search results</h2>
+              <p className="text-muted-foreground">
+                {products?.length ?? 0} {(products?.length ?? 0) === 1 ? "item" : "items"} for “{normalizedSearch}”
+              </p>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {[1, 2, 3, 4, 5, 6].map(i => (

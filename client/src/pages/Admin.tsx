@@ -5,9 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, GripVertical, Eye, KeyRound } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, ArrowUp, Eye, KeyRound } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { InboxPanel } from "@/components/admin/InboxPanel";
@@ -19,10 +20,14 @@ const isValidImageSrc = (val: string) =>
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
+  madeFrom: z.string().default(""),
   priceStr: z.string().regex(/^\d+(\.\d{1,2})?$/, "Must be a valid price (e.g. 19.99)"),
   category: z.string().min(1, "Category is required"),
   imageUrls: z.array(z.string()).min(1, "At least one image is required"),
+  imageBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Choose a valid colour"),
 });
+
+const DEFAULT_IMAGE_BACKGROUND_COLOR = "#ffffff";
 
 type FormValues = z.infer<typeof productFormSchema>;
 
@@ -292,10 +297,12 @@ function MultiImageUploader({
   values,
   onChange,
   onUploadingChange,
+  imageBackgroundColor,
 }: {
   values: string[];
   onChange: (urls: string[]) => void;
   onUploadingChange: (uploading: boolean) => void;
+  imageBackgroundColor: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -304,6 +311,7 @@ function MultiImageUploader({
   const [editingImage, setEditingImage] = useState<ExistingImageEdit | null>(null);
   const [editingImageSaving, setEditingImageSaving] = useState(false);
   const [editingImageError, setEditingImageError] = useState("");
+  const [draggingImageIndex, setDraggingImageIndex] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingImagesRef = useRef<PendingImage[]>([]);
 
@@ -491,6 +499,14 @@ function MultiImageUploader({
     onChange(next);
   };
 
+  const moveImage = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= values.length || toIndex >= values.length) return;
+    const next = [...values];
+    const [movedImage] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, movedImage);
+    onChange(next);
+  };
+
   const openExistingImage = (index: number, url: string) => {
     setEditingImageError("");
     setEditingImage({
@@ -582,9 +598,37 @@ function MultiImageUploader({
       {values.length > 0 && (
         <div className="space-y-2">
           {values.map((url, i) => (
-            <div key={i} className="flex items-center gap-3 bg-muted/30 rounded-xl p-2 border border-border">
-              <button type="button" onClick={() => moveUp(i)} className="text-muted-foreground hover:text-foreground" title="Move up">
-                <GripVertical className="h-4 w-4" />
+            <div
+              key={`${url}-${i}`}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", String(i));
+                setDraggingImageIndex(i);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const draggedIndex = event.dataTransfer.getData("text/plain");
+                if (draggedIndex !== "") moveImage(Number(draggedIndex), i);
+                setDraggingImageIndex(null);
+              }}
+              onDragEnd={() => setDraggingImageIndex(null)}
+              className={`flex cursor-grab items-center gap-3 rounded-xl border border-border bg-muted/30 p-2 active:cursor-grabbing ${draggingImageIndex === i ? "opacity-50" : ""}`}
+              title="Drag to reorder"
+            >
+              <button
+                type="button"
+                onClick={() => moveUp(i)}
+                disabled={i === 0}
+                className="text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                title="Move up"
+                aria-label={`Move image ${i + 1} up`}
+              >
+                <ArrowUp className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -593,7 +637,7 @@ function MultiImageUploader({
                 title="Open image preview and resize"
                 aria-label={`Open image ${i + 1} preview and resize`}
               >
-                <img src={url} alt="" className="h-full w-full rounded-lg object-contain bg-white" />
+                <img src={url} alt="" className="h-full w-full rounded-lg object-contain" style={{ backgroundColor: imageBackgroundColor }} />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   <Eye className="h-5 w-5" />
                 </span>
@@ -645,7 +689,7 @@ function MultiImageUploader({
                 : 1;
               return (
                 <div key={image.previewUrl} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
-                  <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-lg bg-white/70 p-3">
+                  <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-lg p-3" style={{ backgroundColor: imageBackgroundColor }}>
                     {image.width && image.height && targetWidth && targetHeight ? (
                       <img
                         src={image.previewUrl}
@@ -806,7 +850,7 @@ function MultiImageUploader({
 
                 return (
                   <>
-                    <div className="mt-2 flex min-h-[280px] items-center justify-center overflow-hidden rounded-xl bg-muted/30 p-4">
+                    <div className="mt-2 flex min-h-[280px] items-center justify-center overflow-hidden rounded-xl p-4" style={{ backgroundColor: imageBackgroundColor }}>
                       <img
                         src={editingImage.url}
                         alt="Image preview"
@@ -938,12 +982,18 @@ function AdminPortal() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: { name: "", description: "", priceStr: "", category: "", imageUrls: [] },
+    defaultValues: {
+      name: "", description: "", madeFrom: "", priceStr: "", category: "", imageUrls: [],
+      imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
+    },
   });
 
   const openNew = () => {
     setEditingId(null);
-    form.reset({ name: "", description: "", priceStr: "", category: "", imageUrls: [] });
+    form.reset({
+      name: "", description: "", madeFrom: "", priceStr: "", category: "", imageUrls: [],
+      imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
+    });
     setOptionDraft([]);
     setIsOpen(true);
   };
@@ -953,9 +1003,11 @@ function AdminPortal() {
     form.reset({
       name: product.name,
       description: product.description,
+      madeFrom: product.madeFrom ?? "",
       priceStr: (product.price / 100).toFixed(2),
       category: product.category,
       imageUrls: product.imageUrls ?? [],
+      imageBackgroundColor: product.imageBackgroundColor ?? DEFAULT_IMAGE_BACKGROUND_COLOR,
     });
     setOptionDraft((product.options ?? []).map((option) => ({
       name: option.name,
@@ -987,9 +1039,11 @@ function AdminPortal() {
     const payload = {
       name: data.name,
       description: data.description,
+      madeFrom: data.madeFrom,
       price,
       category: data.category,
       imageUrls: data.imageUrls,
+      imageBackgroundColor: data.imageBackgroundColor,
       options,
     };
 
@@ -1077,22 +1131,41 @@ function AdminPortal() {
                   <FormField control={form.control} name="priceStr" render={({ field }) => (
                     <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input className="rounded-xl" placeholder="19.99" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <FormField control={form.control} name="imageBackgroundColor" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Image background colour</FormLabel>
+                      <div className="flex items-center gap-3">
+                        <FormControl><Input type="color" aria-label="Choose image background colour" className="h-11 w-16 cursor-pointer rounded-xl p-1" {...field} /></FormControl>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="h-7 w-7 rounded-md border border-border" style={{ backgroundColor: field.value }} />
+                          <span className="font-mono uppercase">{field.value}</span>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange(DEFAULT_IMAGE_BACKGROUND_COLOR)}>Reset</Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Shows behind transparent areas of the product images.</p>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="imageUrls" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Product Images</FormLabel>
-                      <p className="text-xs text-muted-foreground -mt-1">The first image is shown as the main photo. Use the handle icon to reorder.</p>
+                      <p className="text-xs text-muted-foreground -mt-1">The first image is shown as the main photo. Drag images or use the arrow to reorder.</p>
                       <FormControl>
                         <MultiImageUploader
                           values={field.value}
                           onChange={field.onChange}
                           onUploadingChange={setImagesUploading}
+                          imageBackgroundColor={form.watch("imageBackgroundColor")}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="description" render={({ field }) => (
-                    <FormItem><FormLabel>Description</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={4} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="madeFrom" render={({ field }) => (
+                    <FormItem><FormLabel>Made from</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={3} placeholder="Materials used to make this item" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" className="w-full rounded-xl mt-6 h-12" disabled={isPending || imagesUploading}>
                     {isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "Save"}
@@ -1133,7 +1206,7 @@ function AdminPortal() {
                     <td className="p-4">
                       <div className="flex items-center gap-4">
                         {product.imageUrls?.[0] ? (
-                          <img src={product.imageUrls[0]} alt="" className="w-12 h-12 rounded-lg object-contain bg-white flex-shrink-0" />
+                          <img src={product.imageUrls[0]} alt="" className="w-12 h-12 rounded-lg object-contain flex-shrink-0" style={{ backgroundColor: product.imageBackgroundColor ?? DEFAULT_IMAGE_BACKGROUND_COLOR }} />
                         ) : (
                           <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0" />
                         )}
@@ -1142,7 +1215,7 @@ function AdminPortal() {
                     </td>
                     <td className="p-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        className={`inline [box-decoration-break:clone] [-webkit-box-decoration-break:clone] px-3 py-1 rounded-full text-xs font-bold ${
                           product.category.toLowerCase() === "christmas decorations"
                             ? "border border-green-200 bg-green-100 text-green-700"
                             : product.category.toLowerCase() === "accessories"
@@ -1157,7 +1230,7 @@ function AdminPortal() {
                     <td className="p-4">
                       <div className="flex gap-1">
                         {product.imageUrls?.slice(0, 3).map((url, i) => (
-                          <img key={i} src={url} alt="" className="w-8 h-8 rounded object-contain bg-white" />
+                          <img key={i} src={url} alt="" className="w-8 h-8 rounded object-contain" style={{ backgroundColor: product.imageBackgroundColor ?? DEFAULT_IMAGE_BACKGROUND_COLOR }} />
                         ))}
                       </div>
                     </td>

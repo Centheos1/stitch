@@ -153,8 +153,7 @@ export default function ProductDetail() {
     if (!product) return;
     addItem(product, quantity, chosen);
     toast({
-      title: "Added to cart! 🛍️",
-      description: `${quantity}x ${product.name} added.`,
+      title: `${product.name} has been added to your cart.`,
       className: "bg-white border-2 border-primary/20 rounded-2xl shadow-xl",
     });
   };
@@ -174,8 +173,8 @@ export default function ProductDetail() {
             <div className="space-y-3">
               {/* Main image */}
               <div
-                className="relative flex h-[55vh] max-h-[520px] w-full items-center justify-center rounded-[2rem] overflow-hidden bg-muted/30 p-4 border-2 border-border/50 cursor-zoom-in group"
-                style={{ height: "min(55svh, 520px)" }}
+                className="relative flex h-[55vh] max-h-[520px] w-full items-center justify-center rounded-[2rem] overflow-hidden p-4 border-2 border-border/50 cursor-zoom-in group"
+                style={{ height: "min(55svh, 520px)", backgroundColor: product.imageBackgroundColor ?? "#ffffff" }}
                 onClick={() => openLightbox(selectedIndex)}
                 data-testid="product-image-zoom-trigger"
               >
@@ -221,7 +220,7 @@ export default function ProductDetail() {
                       }`}
                       data-testid={`thumbnail-${i}`}
                     >
-                      <img src={url} alt={`${product.name} view ${i + 1}`} className="w-full h-full object-contain bg-white" />
+                      <img src={url} alt={`${product.name} view ${i + 1}`} className="w-full h-full object-contain" style={{ backgroundColor: product.imageBackgroundColor ?? "#ffffff" }} />
                     </button>
                   ))}
                 </div>
@@ -248,13 +247,18 @@ export default function ProductDetail() {
                 {product.name}
               </h1>
 
-              <div className="font-display text-4xl font-bold text-secondary mb-6">
+              <div className="font-display text-4xl font-bold text-black mb-6">
                 ${(price / 100).toFixed(2)}
               </div>
 
-              <p className="text-lg text-muted-foreground mb-10 leading-relaxed">
+              <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
                 {product.description}
               </p>
+              {product.madeFrom?.trim() && (
+                <p className="text-muted-foreground mb-10 mt-6 border-t border-border pt-6 leading-relaxed whitespace-pre-line">
+                  <span className="font-semibold text-foreground">Made from: </span>{product.madeFrom}
+                </p>
+              )}
 
               <div className="bg-background rounded-3xl p-6 border border-border/50 mb-10">
                 {(product.options ?? []).map((option) => (
@@ -318,7 +322,6 @@ export default function ProductDetail() {
               <div className="text-sm text-muted-foreground flex flex-col gap-2">
                 <p>✨ Handcrafted with love and care</p>
                 <p>📦 Ships securely packaged</p>
-                <p>💖 Supports independent creators</p>
               </div>
             </div>
           </div>
@@ -381,7 +384,7 @@ export default function ProductDetail() {
                   onClick={(e) => { e.stopPropagation(); setSelectedIndex(i); applyZoom(1); }}
                   className={`h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border transition-all ${i === selectedIndex ? "border-black scale-110" : "border-white/30 opacity-60 hover:opacity-100"}`}
                 >
-                  <img src={url} alt="" className="w-full h-full object-contain bg-white" />
+                  <img src={url} alt="" className="w-full h-full object-contain" style={{ backgroundColor: product.imageBackgroundColor ?? "#ffffff" }} />
                 </button>
               ))}
             </div>
@@ -404,6 +407,7 @@ export default function ProductDetail() {
                 maxWidth: "100%",
                 maxHeight: "100%",
                 objectFit: "contain",
+                backgroundColor: product.imageBackgroundColor ?? "#ffffff",
                 transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
                 transition: isDragging ? "none" : "transform 0.15s ease",
               }}

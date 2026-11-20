@@ -40,8 +40,8 @@ export function Navbar() {
               <Link 
                 key={link.href} 
                 href={link.href}
-                className={`font-semibold text-lg transition-colors hover:text-primary ${
-                  location === link.href ? "text-primary" : "text-foreground"
+                className={`font-semibold text-lg transition-colors hover:text-green-800 ${
+                  location === link.href ? "text-green-600" : "text-foreground"
                 }`}
               >
                 {link.label}
@@ -52,10 +52,10 @@ export function Navbar() {
           {/* Actions */}
           <div className="flex items-center gap-4">
             <Link href="/cart" className="relative group p-2">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-border shadow-sm group-hover:border-primary/50 group-hover:shadow-md transition-all">
-                <ShoppingBag className="h-5 w-5 text-foreground group-hover:text-primary transition-colors" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-border shadow-sm group-hover:border-green-800/50 group-hover:shadow-md transition-all">
+                <ShoppingBag className="h-5 w-5 text-foreground group-hover:text-green-800 transition-colors" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-primary font-bold text-xs text-white shadow-md animate-in zoom-in">
+                  <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-transparent bg-green-700 font-bold text-xs text-white shadow-md transition-colors group-hover:border-green-800/50 group-hover:bg-green-700 group-hover:text-white animate-in zoom-in">
                     {cartCount}
                   </span>
                 )}
@@ -83,8 +83,10 @@ export function Navbar() {
                 key={link.href} 
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`text-lg font-semibold p-2 rounded-xl ${
-                  location === link.href ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+                className={`text-lg font-semibold p-2 rounded-xl transition-colors ${
+                  location === link.href
+                    ? "bg-[#A8E3BC] text-[#14532D]"
+                    : "text-foreground hover:bg-[#A8E3BC] hover:text-[#14532D]"
                 }`}
               >
                 {link.label}

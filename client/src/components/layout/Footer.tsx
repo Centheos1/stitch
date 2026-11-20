@@ -20,7 +20,7 @@ export function Footer() {
               <span className="font-display text-2xl font-bold rainbow-text whitespace-nowrap">STITCH</span>
             </Link>
             <p className="text-muted-foreground max-w-sm">
-              Bringing joy through colorful, craft-inspired handmade items. Every piece is made with love, care, and a sprinkle of magic.
+              Bringing joy through colourful, craft-inspired handmade items. Every piece is made with love, care, and a sprinkle of magic.
             </p>
           </div>
           

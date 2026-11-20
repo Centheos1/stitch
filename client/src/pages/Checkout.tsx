@@ -86,9 +86,14 @@ export default function Checkout() {
       <h1 className="font-display text-4xl font-bold mb-10 text-center rainbow-text">Checkout</h1>
       
       <div className="bg-white p-8 sm:p-12 rounded-[3rem] border-2 border-border shadow-xl">
-        <div className="mb-10 p-6 bg-primary/5 rounded-2xl border border-primary/20">
-          <h3 className="font-display font-bold text-xl mb-4">Order Total: ${(totalAmount / 100).toFixed(2)}</h3>
-          <p className="text-sm text-muted-foreground">({items.length} items + $5.00 shipping)</p>
+        <div className="mb-10">
+          <div className="p-6 bg-primary/5 rounded-2xl border border-primary/20">
+            <h3 className="font-display font-bold text-xl mb-4">Order Total: ${(totalAmount / 100).toFixed(2)}</h3>
+            <p className="text-sm text-muted-foreground">({items.length} items + $5.00 shipping)</p>
+          </div>
+          <p className="mt-4 px-2 text-sm leading-relaxed text-muted-foreground">
+            As all items are handmade, items may vary in size and colouring. We do our best to keep everything as similar as possible. This variance is what makes each item unique and gives it character.
+          </p>
         </div>
 
         <Form {...form}>

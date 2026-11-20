@@ -1,7 +1,65 @@
 import { Link, useLocation } from "wouter";
 import { cartLineKey, unitPrice, useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { useState } from "react";
+
+function EditableQuantity({
+  lineKey,
+  quantity,
+  updateQuantity,
+}: {
+  lineKey: string;
+  quantity: number;
+  updateQuantity: (lineKey: string, quantity: number) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(String(quantity));
+
+  const save = () => {
+    const nextQuantity = Number(value);
+    if (Number.isInteger(nextQuantity) && nextQuantity >= 1) {
+      updateQuantity(lineKey, nextQuantity);
+    }
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <Input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoFocus
+        aria-label="Item quantity"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={save}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+        className="h-8 w-12 rounded-md border-0 bg-transparent p-0 text-center font-bold focus-visible:ring-2"
+      />
+    );
+  }
+
+  return (
+    <div
+      className="w-10 cursor-text text-center font-bold"
+      title="Double-click to edit quantity"
+      onDoubleClick={() => {
+        setValue(String(quantity));
+        setIsEditing(true);
+      }}
+    >
+      {quantity}
+    </div>
+  );
+}
 
 export default function Cart() {
   const [, setLocation] = useLocation();
@@ -15,7 +73,7 @@ export default function Cart() {
         </div>
         <h1 className="font-display text-4xl font-bold mb-4">Your cart is empty</h1>
         <p className="text-xl text-muted-foreground mb-8 max-w-md">
-          Looks like you haven't added any colorful creations to your cart yet.
+          Looks like you haven't added any colourful creations to your cart yet.
         </p>
         <Link href="/shop">
           <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold shadow-lg shadow-primary/20">
@@ -46,11 +104,15 @@ export default function Cart() {
               key={key} 
               className="flex flex-col sm:flex-row bg-white p-4 rounded-3xl border border-border shadow-sm gap-6 items-center"
             >
-              <div className="w-full sm:w-32 h-32 flex-shrink-0 bg-muted rounded-2xl overflow-hidden">
+              <div
+                className="w-full sm:w-32 h-32 flex-shrink-0 rounded-2xl overflow-hidden"
+                style={{ backgroundColor: item.product.imageBackgroundColor ?? "#ffffff" }}
+              >
                 <img
                   src={item.product.imageUrls?.[0] ?? ""}
                   alt={item.product.name}
-                  className="w-full h-full object-contain bg-white"
+                  className="w-full h-full object-contain"
+                  style={{ backgroundColor: item.product.imageBackgroundColor ?? "#ffffff" }}
                 />
               </div>
               
@@ -74,7 +136,11 @@ export default function Cart() {
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <div className="w-10 text-center font-bold">{item.quantity}</div>
+                    <EditableQuantity
+                      lineKey={key}
+                      quantity={item.quantity}
+                      updateQuantity={updateQuantity}
+                    />
                     <button 
                       onClick={() => updateQuantity(key, item.quantity + 1)}
                       className="px-3 py-2 hover:bg-muted text-foreground transition-colors"
@@ -117,7 +183,7 @@ export default function Cart() {
             <div className="border-t border-border pt-6 mb-8">
               <div className="flex justify-between items-center">
                 <span className="font-display font-bold text-xl">Total</span>
-                <span className="font-display font-bold text-3xl text-primary">${total.toFixed(2)}</span>
+                <span className="font-display font-bold text-3xl text-black">${total.toFixed(2)}</span>
               </div>
             </div>
             

@@ -1,5 +1,10 @@
 node_modules
 dist
+.local-tools/
+.local-data/
+.env
+.env.*
+!.env.example
 .DS_Store
 server/public
 vite.config.ts.*

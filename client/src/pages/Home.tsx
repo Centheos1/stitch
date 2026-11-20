@@ -43,7 +43,7 @@ export default function Home() {
                 Handmade with Love
               </div>
               <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
-                Colorful <span className="rainbow-text">Handmade</span> Treasures
+                Colourful <span className="rainbow-text">Handmade</span> Treasures
               </h1>
               <p className="text-xl text-muted-foreground mb-8">
                 Discover unique, craft-inspired animals, bags, hair clips, and decorations made to bring joy to your everyday life.
@@ -71,9 +71,9 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-secondary/20 rounded-full blur-3xl -z-10 transform translate-x-10 translate-y-10"></div>
               {/* landing page hero colorful yarn crafts */}
               <img 
-                src="https://pixabay.com/get/g075a820d5cf41cb960edef6b236b31756127fdc972ba5bb5e0f966aa593615c5c9d4cb67b5742510503dfafad18abd1614819c3669f455ba44b7d17d79b3ebc5_1280.jpg" 
-                alt="Colorful handmade crafts" 
-                className="w-full h-auto rounded-[3rem] shadow-2xl border-4 border-white rotate-3"
+                src="/uploads/1792993934547-969881.png"
+                alt="Handmade felt nativity scene"
+                className="w-full h-auto rounded-[3rem] bg-white shadow-2xl border-4 border-white rotate-3"
               />
               
             </motion.div>
@@ -124,7 +124,7 @@ export default function Home() {
               <p className="text-lg text-muted-foreground">The latest handmade goodies straight from the workshop.</p>
             </div>
             <Link href="/shop">
-              <Button variant="ghost" className="hidden sm:flex font-bold text-primary hover:bg-primary/10 rounded-xl">
+              <Button variant="ghost" className="hidden sm:flex font-bold text-black hover:bg-gray-100 hover:text-black rounded-xl">
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -146,7 +146,7 @@ export default function Home() {
           
           <div className="mt-8 text-center sm:hidden">
             <Link href="/shop">
-              <Button variant="outline" className="font-bold text-primary border-primary rounded-xl">
+              <Button variant="outline" className="font-bold text-black border-primary hover:bg-gray-100 hover:text-black rounded-xl">
                 View All <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
