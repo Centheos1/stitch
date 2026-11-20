@@ -5,7 +5,7 @@ export default function Contact() {
     <div className="min-h-screen py-16">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h1 className="font-display text-5xl font-bold mb-4">Say Hello! 👋</h1>
+          <h1 className="font-display text-5xl font-bold mb-4">Say Hello!</h1>
           <p className="text-lg text-muted-foreground">We'd love to hear from you. Drop us a line.</p>
         </div>
 
