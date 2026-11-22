@@ -131,13 +131,13 @@ export default function Home() {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr gap-8">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="h-[400px] rounded-3xl bg-muted animate-pulse"></div>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr gap-8">
               {featuredProducts.map((product, i) => (
                 <ProductCard key={product.id} product={product} index={i} />
               ))}

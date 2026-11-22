@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 
 type OrderBundle = { order: Order; items: OrderItem[]; messages: OrderMessage[] };
 
-const STATUSES = ["paid", "fulfilled", "declined"] as const;
+const STATUSES = ["approved", "paid", "fulfilled", "declined"] as const;
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;

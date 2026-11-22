@@ -10,6 +10,8 @@ import NotFound from "@/pages/not-found";
 // Layout Components
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
+import { ProblemReportButton } from "./components/layout/ProblemReportButton";
+import { ShopFiltersProvider } from "@/contexts/ShopFiltersContext";
 
 // Pages
 import Home from "./pages/Home";
@@ -55,7 +57,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <ProblemReportButton />
+        <ShopFiltersProvider>
+          <Router />
+        </ShopFiltersProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

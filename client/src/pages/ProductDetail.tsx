@@ -1,7 +1,7 @@
 import { useRoute } from "wouter";
 import { useProduct } from "@/hooks/use-products";
 import { unitPrice, useCart } from "@/hooks/use-cart";
-import type { SelectedOption } from "@shared/schema";
+import { getStockLabel, type SelectedOption } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Minus, Plus, ShoppingCart, Heart, ArrowLeft, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -162,7 +162,7 @@ export default function ProductDetail() {
     <div className="min-h-screen py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
-        <Link href="/shop" className="inline-flex items-center text-muted-foreground hover:text-primary font-semibold mb-8 transition-colors">
+        <Link href="/shop" className="inline-flex items-center text-muted-foreground hover:text-green-800 font-semibold mb-8 transition-colors">
           <ArrowLeft className="mr-2 h-5 w-5" /> Back to Shop
         </Link>
 
@@ -229,20 +229,6 @@ export default function ProductDetail() {
 
             {/* Details */}
             <div className="flex flex-col justify-center">
-              <div className="mb-2">
-                <span
-                  className={`inline-block px-4 py-1.5 rounded-full font-bold text-sm ${
-                    product.category.toLowerCase() === "christmas decorations"
-                      ? "border border-green-200 bg-green-100 text-green-700"
-                      : product.category.toLowerCase() === "accessories"
-                        ? "border border-purple-200 bg-purple-100 text-purple-700"
-                      : "bg-primary/10 text-primary"
-                  }`}
-                >
-                  {product.category}
-                </span>
-              </div>
-
               <h1 className="font-display text-4xl lg:text-5xl font-bold text-foreground mb-4 leading-tight">
                 {product.name}
               </h1>
@@ -286,6 +272,7 @@ export default function ProductDetail() {
                   <div className="font-bold text-foreground">Quantity:</div>
                   <div className="flex items-center bg-white rounded-xl border border-border overflow-hidden shadow-sm">
                     <button
+                      disabled={product.stockAvailable === "Out of stock"}
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
                       className="px-4 py-3 hover:bg-muted text-foreground transition-colors"
                     >
@@ -293,6 +280,7 @@ export default function ProductDetail() {
                     </button>
                     <div className="w-12 text-center font-bold text-lg">{quantity}</div>
                     <button
+                      disabled={product.stockMode !== "made_to_order" && quantity >= (product.stockQuantity ?? 0)}
                       onClick={() => setQuantity(quantity + 1)}
                       className="px-4 py-3 hover:bg-muted text-foreground transition-colors"
                     >
@@ -305,6 +293,7 @@ export default function ProductDetail() {
                   <Button
                     onClick={handleAddToCart}
                     size="lg"
+                    disabled={product.stockAvailable === "Out of stock"}
                     className="flex-1 rounded-2xl h-16 text-lg font-bold shadow-lg shadow-primary/25 hover:-translate-y-1 transition-all"
                   >
                     <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
@@ -319,10 +308,14 @@ export default function ProductDetail() {
                 </div>
               </div>
 
-              <div className="text-sm text-muted-foreground flex flex-col gap-2">
-                <p>✨ Handcrafted with love and care</p>
-                <p>📦 Ships securely packaged</p>
-              </div>
+              <p className={`mb-4 text-sm font-semibold ${
+                product.stockAvailable === "Out of stock" ? "text-red-700" :
+                product.stockAvailable === "Low stock" ? "text-amber-700" :
+                product.stockAvailable === "Made to order" ? "text-blue-700" : "text-green-700"
+              }`}>
+                {getStockLabel(product)}
+              </p>
+
             </div>
           </div>
         </div>

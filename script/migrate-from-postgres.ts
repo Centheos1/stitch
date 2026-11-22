@@ -210,6 +210,9 @@ async function main() {
         madeFrom: product.made_from ?? "",
         price: product.price, category: product.category, imageUrls,
         imageBackgroundColor: product.image_background_color ?? "#ffffff",
+        stockMode: "tracked",
+        stockQuantity: 0,
+        stockAvailable: "Out of stock",
         createdAt: iso(product.created_at, `Product ${product.id}`),
       });
       items.push({ pk: `CATEGORY#${product.category}`, sk: `PRODUCT#${product.id}`, productId: String(product.id) });

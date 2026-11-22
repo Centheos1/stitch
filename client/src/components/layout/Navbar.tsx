@@ -1,14 +1,34 @@
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/hooks/use-cart";
 import { ShoppingBag, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ShopPriceFilters } from "@/components/ShopPriceFilters";
 import stitchLogo from "@assets/Screenshot_2026-03-08_at_10.19.25_am_1772925583025.png";
 
 export function Navbar() {
   const [location] = useLocation();
   const cartCount = useCart((state) => state.getCartCount());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuToggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const closeWhenClickingOutside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !mobileMenuRef.current?.contains(event.target) &&
+        !mobileMenuToggleRef.current?.contains(event.target)
+      ) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeWhenClickingOutside);
+    return () => document.removeEventListener("pointerdown", closeWhenClickingOutside);
+  }, [mobileMenuOpen]);
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -63,9 +83,11 @@ export function Navbar() {
             </Link>
 
             <Button
+              ref={mobileMenuToggleRef}
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -76,8 +98,8 @@ export function Navbar() {
 
       {/* Mobile Nav */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-white p-4 shadow-xl animate-in slide-in-from-top-4">
-          <nav className="flex flex-col gap-4">
+        <div ref={mobileMenuRef} className="absolute left-0 right-0 top-full z-50 max-h-[calc(100vh-5rem)] overflow-y-auto border-t border-border bg-white p-4 shadow-xl animate-in slide-in-from-top-4 md:left-auto md:right-8 md:mt-2 md:w-[min(24rem,calc(100vw-4rem))] md:rounded-2xl md:border">
+          <nav className="flex flex-col gap-4 md:hidden">
             {navLinks.map((link) => (
               <Link 
                 key={link.href} 
@@ -93,6 +115,9 @@ export function Navbar() {
               </Link>
             ))}
           </nav>
+          <div className="mt-4 border-t border-border pt-4 md:mt-0 md:border-t-0 md:pt-0">
+            <ShopPriceFilters idPrefix="mobile-shop-price" />
+          </div>
         </div>
       )}
     </header>

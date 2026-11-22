@@ -1,4 +1,4 @@
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
+import { useAdminProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, ArrowUp, Eye, KeyRound } from "lucide-react";
+import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, ArrowUp, ChevronUp, ChevronDown, Eye, EyeOff, KeyRound, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { InboxPanel } from "@/components/admin/InboxPanel";
-import type { Product } from "@shared/schema";
+import { getStockLabel, getStockStatus, type Product } from "@shared/schema";
 
 const isValidImageSrc = (val: string) =>
   val.startsWith("/images/") || val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://");
@@ -25,11 +25,19 @@ const productFormSchema = z.object({
   category: z.string().min(1, "Category is required"),
   imageUrls: z.array(z.string()).min(1, "At least one image is required"),
   imageBackgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Choose a valid colour"),
+  stockMode: z.enum(["tracked", "made_to_order"]),
+  stockQuantityStr: z.string().optional(),
+}).superRefine((data, context) => {
+  if (data.stockMode === "tracked" && !/^\d+$/.test(data.stockQuantityStr ?? "")) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["stockQuantityStr"], message: "Enter a whole number of 0 or more." });
+  }
 });
 
 const DEFAULT_IMAGE_BACKGROUND_COLOR = "#ffffff";
 
 type FormValues = z.infer<typeof productFormSchema>;
+type AdminNote = { id: string; text: string; kind: "note" | "todo"; completed: boolean };
+const ADMIN_NOTES_STORAGE_KEY = "stitch-admin-notes";
 
 function errorMessage(err: unknown, fallback: string): string {
   const message = err instanceof Error ? err.message : "";
@@ -969,7 +977,10 @@ function MultiImageUploader({
 }
 
 function AdminPortal() {
-  const { data: products, isLoading } = useProducts();
+  const { data: products, isLoading } = useAdminProducts();
+  const sortedProducts = [...(products ?? [])].sort((a, b) =>
+    a.name.trim().localeCompare(b.name.trim(), undefined, { sensitivity: "base", numeric: true })
+  );
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -977,22 +988,95 @@ function AdminPortal() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [imagesUploading, setImagesUploading] = useState(false);
+  const [productSaveError, setProductSaveError] = useState("");
   const [tab, setTab] = useState<"inventory" | "orders" | "inbox">("inventory");
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notes, setNotes] = useState<AdminNote[]>([]);
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteKind, setNoteKind] = useState<AdminNote["kind"]>("note");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [optionDraft, setOptionDraft] = useState<{ name: string; choices: { label: string; priceStr: string }[] }[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(ADMIN_NOTES_STORAGE_KEY);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) setNotes(parsed.filter((item): item is AdminNote =>
+          item && typeof item.id === "string" && typeof item.text === "string" &&
+          (item.kind === "note" || item.kind === "todo") && typeof item.completed === "boolean"
+        ));
+      }
+    } catch {
+      // Ignore malformed or unavailable browser storage and start with an empty list.
+    }
+    setNotesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!notesLoaded) return;
+    try {
+      window.localStorage.setItem(ADMIN_NOTES_STORAGE_KEY, JSON.stringify(notes));
+    } catch {
+      // Notes remain usable for this session when browser storage is unavailable.
+    }
+  }, [notes, notesLoaded]);
+
+  const saveNote = () => {
+    const text = noteDraft.trim();
+    if (!text) return;
+    if (editingNoteId) {
+      setNotes((current) => current.map((item) => item.id === editingNoteId
+        ? { ...item, text, kind: noteKind, completed: item.kind === noteKind ? item.completed : false }
+        : item));
+      setEditingNoteId(null);
+    } else {
+      setNotes((current) => [{
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        text,
+        kind: noteKind,
+        completed: false,
+      }, ...current]);
+    }
+    setNoteDraft("");
+  };
+
+  const editNote = (note: AdminNote) => {
+    setEditingNoteId(note.id);
+    setNoteDraft(note.text);
+    setNoteKind(note.kind);
+  };
+
+  const cancelNoteEdit = () => {
+    setEditingNoteId(null);
+    setNoteDraft("");
+    setNoteKind("note");
+  };
+
+  const addNote = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    saveNote();
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: "", description: "", madeFrom: "", priceStr: "", category: "", imageUrls: [],
       imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
+      stockMode: "tracked",
+      stockQuantityStr: "0",
     },
   });
 
   const openNew = () => {
     setEditingId(null);
+    setProductSaveError("");
     form.reset({
       name: "", description: "", madeFrom: "", priceStr: "", category: "", imageUrls: [],
       imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
+      stockMode: "tracked",
+      stockQuantityStr: "0",
     });
     setOptionDraft([]);
     setIsOpen(true);
@@ -1000,6 +1084,7 @@ function AdminPortal() {
 
   const openEdit = (product: Product) => {
     setEditingId(product.id);
+    setProductSaveError("");
     form.reset({
       name: product.name,
       description: product.description,
@@ -1008,6 +1093,8 @@ function AdminPortal() {
       category: product.category,
       imageUrls: product.imageUrls ?? [],
       imageBackgroundColor: product.imageBackgroundColor ?? DEFAULT_IMAGE_BACKGROUND_COLOR,
+      stockMode: product.stockMode ?? (product.stockAvailable === "Made to order" ? "made_to_order" : "tracked"),
+      stockQuantityStr: String(product.stockQuantity ?? 0),
     });
     setOptionDraft((product.options ?? []).map((option) => ({
       name: option.name,
@@ -1027,6 +1114,7 @@ function AdminPortal() {
 
   const onSubmit = (data: FormValues) => {
     const price = Math.round(parseFloat(data.priceStr) * 100);
+    const stockQuantity = data.stockMode === "tracked" ? Number(data.stockQuantityStr) : undefined;
     const options = optionDraft
       .filter((option) => option.name.trim() && option.choices.some((choice) => choice.label.trim()))
       .map((option) => ({
@@ -1044,13 +1132,31 @@ function AdminPortal() {
       category: data.category,
       imageUrls: data.imageUrls,
       imageBackgroundColor: data.imageBackgroundColor,
+      stockMode: data.stockMode,
+      stockQuantity,
+      stockAvailable: getStockStatus(data.stockMode, stockQuantity),
+      shopVisible: editingId ? products?.find((product) => product.id === editingId)?.shopVisible ?? true : true,
       options,
+    };
+    const confirmSavedStock = (saved: Product) => {
+      if (saved.stockMode !== data.stockMode || saved.stockQuantity !== stockQuantity) {
+        setProductSaveError("The server did not confirm the stock quantity. Restart the app server, then save again.");
+        return false;
+      }
+      setProductSaveError("");
+      return true;
     };
 
     if (editingId) {
-      updateProduct.mutate({ id: editingId, ...payload }, { onSuccess: () => setIsOpen(false) });
+      updateProduct.mutate({ id: editingId, ...payload }, {
+        onSuccess: (saved) => { if (confirmSavedStock(saved)) setIsOpen(false); },
+        onError: (error) => setProductSaveError(error.message),
+      });
     } else {
-      createProduct.mutate(payload, { onSuccess: () => setIsOpen(false) });
+      createProduct.mutate(payload, {
+        onSuccess: (saved) => { if (confirmSavedStock(saved)) setIsOpen(false); },
+        onError: (error) => setProductSaveError(error.message),
+      });
     }
   };
 
@@ -1071,6 +1177,9 @@ function AdminPortal() {
 
         <div className="flex items-center gap-3 flex-wrap justify-end">
           <ChangePassword />
+          <Button variant="outline" size="sm" className="rounded-xl text-muted-foreground" onClick={() => setNotesOpen(true)}>
+            <FileText className="mr-2 h-4 w-4" /> Notes
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -1092,7 +1201,7 @@ function AdminPortal() {
                 <Plus className="mr-2 h-4 w-4" /> Add Product
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[520px] rounded-3xl border-2 border-border p-8 max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[min(92vw,64rem)] max-w-none rounded-3xl border-2 border-border p-5 sm:p-8 max-h-[calc(100dvh-2rem)] overflow-x-hidden overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="font-display text-2xl">
                   {editingId ? "Edit Item" : "Create New Item"}
@@ -1100,6 +1209,7 @@ function AdminPortal() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+                  {productSaveError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{productSaveError}</p>}
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -1165,8 +1275,77 @@ function AdminPortal() {
                     <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={4} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="madeFrom" render={({ field }) => (
-                    <FormItem><FormLabel>Made from</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={3} placeholder="Materials used to make this item" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Made from</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={3} placeholder="Materials used to make this item" {...field} onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }
+                    }} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <FormField control={form.control} name="stockMode" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock type</FormLabel>
+                      <FormControl>
+                        <select
+                          ref={field.ref}
+                          name={field.name}
+                          value={field.value}
+                          onBlur={field.onBlur}
+                          onChange={(event) => field.onChange(event.target.value)}
+                          className="flex h-10 w-full max-w-xs rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          aria-label="Stock type"
+                        >
+                          <option value="tracked">Track stock quantity</option>
+                          <option value="made_to_order">Made to order</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  {form.watch("stockMode") === "tracked" && (
+                    <FormField control={form.control} name="stockQuantityStr" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantity in stock</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              className="w-full max-w-xs rounded-xl"
+                              placeholder="0"
+                              {...field}
+                              value={field.value ?? ""}
+                              onChange={(event) => field.onChange(event.target.value.replace(/\D/g, ""))}
+                              aria-label="Quantity in stock"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-11 w-11 shrink-0 rounded-xl"
+                              aria-label="Increase stock quantity by one"
+                              onClick={() => field.onChange(String((Number(field.value) || 0) + 1))}
+                            >
+                              <ChevronUp className="h-5 w-5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-11 w-11 shrink-0 rounded-xl"
+                              aria-label="Decrease stock quantity by one"
+                              onClick={() => field.onChange(String(Math.max(0, (Number(field.value) || 0) - 1)))}
+                            >
+                              <ChevronDown className="h-5 w-5" />
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">Products with 3 or fewer remaining will show as low stock.</p>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
                   <Button type="submit" className="w-full rounded-xl mt-6 h-12" disabled={isPending || imagesUploading}>
                     {isPending ? <Loader2 className="animate-spin h-5 w-5" /> : "Save"}
                   </Button>
@@ -1177,6 +1356,78 @@ function AdminPortal() {
           )}
         </div>
       </div>
+
+      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+        <DialogContent className="w-[min(92vw,40rem)] max-w-none rounded-3xl border-2 border-border p-5 sm:p-8 max-h-[calc(100dvh-2rem)] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl">Notes &amp; To-do</DialogTitle>
+            <DialogDescription>Keep notes and tasks for your shop. They are saved in this browser.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={addNote} className="space-y-3">
+            <Textarea
+              value={noteDraft}
+              onChange={(event) => setNoteDraft(event.target.value)}
+              placeholder={noteKind === "todo" ? "Write a task…" : "Write a note…"}
+              rows={3}
+              className="rounded-xl resize-y"
+              aria-label={noteKind === "todo" ? "To-do text" : "Note text"}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  saveNote();
+                }
+              }}
+            />
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <select
+                value={noteKind}
+                onChange={(event) => setNoteKind(event.target.value as AdminNote["kind"])}
+                className="h-10 flex-1 rounded-xl border border-input bg-background px-3 text-sm"
+                aria-label="Entry type"
+              >
+                <option value="note">Note</option>
+                <option value="todo">To-do</option>
+              </select>
+              <div className="flex gap-2">
+                {editingNoteId && <Button type="button" variant="outline" className="rounded-xl" onClick={cancelNoteEdit}>Cancel</Button>}
+                <Button type="submit" className="rounded-xl" disabled={!noteDraft.trim()}>{editingNoteId ? "Save changes" : "Add"}</Button>
+              </div>
+            </div>
+          </form>
+          <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
+            {notes.length === 0 ? (
+              <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Your notes and to-do items will appear here.</p>
+            ) : notes.map((note) => (
+              <div key={note.id} className="flex items-start gap-3 rounded-xl border border-border p-3">
+                {note.kind === "todo" ? (
+                  <input
+                    type="checkbox"
+                    checked={note.completed}
+                    onChange={() => setNotes((current) => current.map((item) => item.id === note.id ? { ...item, completed: !item.completed } : item))}
+                    className="mt-1 h-4 w-4 accent-green-700"
+                    aria-label={`Mark to-do ${note.completed ? "incomplete" : "complete"}`}
+                  />
+                ) : <FileText className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />}
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{note.kind === "todo" ? "To-do" : "Note"}</p>
+                  <p className={`whitespace-pre-wrap break-words text-sm ${note.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{note.text}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => editNote(note)} aria-label={`Edit ${note.kind === "todo" ? "to-do" : "note"}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                    setNotes((current) => current.filter((item) => item.id !== note.id));
+                    if (editingNoteId === note.id) cancelNoteEdit();
+                  }} aria-label={`Delete ${note.kind === "todo" ? "to-do" : "note"}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex gap-2 mb-6">
         <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("inventory")}>Inventory</Button>
@@ -1196,12 +1447,13 @@ function AdminPortal() {
                   <th className="p-4 font-bold">Item</th>
                   <th className="p-4 font-bold">Category</th>
                   <th className="p-4 font-bold">Price</th>
+                  <th className="p-4 font-bold">Stock</th>
                   <th className="p-4 font-bold">Images</th>
                   <th className="p-4 font-bold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {products?.map((product) => (
+                {sortedProducts.map((product) => (
                   <tr key={product.id} className="border-b border-border/50 hover:bg-muted/20" data-testid={`row-product-${product.id}`}>
                     <td className="p-4">
                       <div className="flex items-center gap-4">
@@ -1210,7 +1462,12 @@ function AdminPortal() {
                         ) : (
                           <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0" />
                         )}
-                        <span className="font-semibold">{product.name}</span>
+                        <div>
+                          <span className="font-semibold">{product.name}</span>
+                          {product.shopVisible === false && (
+                            <span className="mt-1 block text-xs font-medium text-muted-foreground">Hidden from shop</span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="p-4">
@@ -1227,6 +1484,7 @@ function AdminPortal() {
                       </span>
                     </td>
                     <td className="p-4 font-bold">${(product.price / 100).toFixed(2)}</td>
+                    <td className="p-4 text-sm">{getStockLabel(product)}</td>
                     <td className="p-4">
                       <div className="flex gap-1">
                         {product.imageUrls?.slice(0, 3).map((url, i) => (
@@ -1235,6 +1493,17 @@ function AdminPortal() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateProduct.mutate({ id: product.id, shopVisible: product.shopVisible === false })}
+                        disabled={updateProduct.isPending}
+                        aria-label={`${product.shopVisible === false ? "Show" : "Hide"} ${product.name} ${product.shopVisible === false ? "in" : "from"} shop`}
+                        title={product.shopVisible === false ? "Show in shop" : "Hide from shop"}
+                      >
+                        {product.shopVisible === false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(product)}>
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -1245,7 +1514,7 @@ function AdminPortal() {
                   </tr>
                 ))}
                 {products?.length === 0 && (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">Inventory is empty. Start adding products!</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Inventory is empty. Start adding products!</td></tr>
                 )}
               </tbody>
             </table>

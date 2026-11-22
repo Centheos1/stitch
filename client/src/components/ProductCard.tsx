@@ -1,12 +1,12 @@
 import { Link } from "wouter";
-import { type Product } from "@shared/schema";
+import { getStockLabel, type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
 import { ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
-export function ProductCard({ product, index = 0 }: { product: Product, index?: number }) {
+export function ProductCard({ product, index = 0, showCategoryBadge = true }: { product: Product, index?: number, showCategoryBadge?: boolean }) {
   const addItem = useCart(state => state.addItem);
   const { toast } = useToast();
 
@@ -36,11 +36,12 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
 
   return (
     <motion.div
+      className="h-full"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
-      <Link href={`/product/${product.id}`} className="block group">
+      <Link href={`/product/${product.id}`} className="block h-full group">
         <div className="h-full flex flex-col bg-white rounded-3xl p-4 shadow-sm border-2 border-transparent hover:border-gray-200 hover:shadow-xl transition-all duration-300">
 
           <div
@@ -57,19 +58,29 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">No image</div>
             )}
-            <div className="absolute top-3 left-3">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${categoryStyles.badge}`}>
-                {product.category}
-              </span>
-            </div>
+            {showCategoryBadge && (
+              <div className="absolute top-3 left-3">
+                <span className={`inline [box-decoration-break:clone] [-webkit-box-decoration-break:clone] text-xs font-bold px-3 py-1 rounded-full border ${categoryStyles.badge}`}>
+                  {product.category}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 flex flex-col">
-            <h3 className={`font-display text-xl font-bold mb-1 line-clamp-1 ${categoryStyles.hoverText} transition-colors`}>
+            <h3 className={`min-h-[3.5rem] font-display text-xl font-bold mb-1 break-words ${categoryStyles.hoverText} transition-colors`}>
               {product.name}
             </h3>
-            <p className="text-muted-foreground text-sm line-clamp-2 mb-4 flex-1">
+            <p className="min-h-[2.5rem] text-muted-foreground text-sm line-clamp-2 mb-4 flex-1">
               {product.description}
+            </p>
+
+            <p className={`mb-3 text-sm font-semibold ${
+              product.stockAvailable === "Out of stock" ? "text-red-700" :
+              product.stockAvailable === "Low stock" ? "text-amber-700" :
+              product.stockAvailable === "Made to order" ? "text-blue-700" : "text-green-700"
+            }`}>
+              {getStockLabel(product)}
             </p>
 
             <div className="flex items-center justify-between mt-auto">
@@ -80,6 +91,7 @@ export function ProductCard({ product, index = 0 }: { product: Product, index?: 
                 onClick={handleAddToCart}
                 size="icon"
                 aria-label={`Add ${product.name} to cart`}
+                disabled={product.stockAvailable === "Out of stock"}
                 className="rounded-2xl h-10 w-10 border-2 border-border bg-white text-foreground shadow-sm transition-all hover:border-green-800/50 hover:bg-white hover:text-green-800 hover:shadow-md"
               >
                 <ShoppingBag className="h-5 w-5" />

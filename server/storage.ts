@@ -12,6 +12,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import {
   productSchema,
+  getStockStatus,
   orderSchema,
   orderItemSchema,
   orderMessageSchema,
@@ -29,7 +30,7 @@ import { doc, tableName } from "./dynamo";
 const PRODUCT_INDEX = "gsi1";
 
 export interface IStorage {
-  getProducts(category?: string, search?: string): Promise<Product[]>;
+  getProducts(category?: string, search?: string, includeBlocked?: boolean): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, updates: UpdateProductRequest): Promise<Product | undefined>;
@@ -128,8 +129,20 @@ export function emailKey(messageId: string): string {
 }
 
 function toProduct(item: Record<string, unknown>): Product {
+  const storedAvailability = item.stockAvailable;
+  const stockMode = item.stockMode === "made_to_order" || storedAvailability === "Made to order"
+    ? "made_to_order"
+    : "tracked";
+  const stockQuantity = stockMode === "made_to_order"
+    ? undefined
+    : typeof item.stockQuantity === "number" && Number.isInteger(item.stockQuantity) && item.stockQuantity >= 0
+      ? item.stockQuantity
+      : 0;
   return productSchema.parse({
     ...item,
+    stockMode,
+    stockQuantity,
+    stockAvailable: getStockStatus(stockMode, stockQuantity),
     options: Array.isArray(item.options) ? item.options : undefined,
   });
 }
@@ -152,7 +165,7 @@ async function queryAll(input: Omit<QueryCommandInput, "TableName" | "ExclusiveS
 }
 
 export class DynamoStorage implements IStorage {
-  async getProducts(category?: string, search?: string): Promise<Product[]> {
+  async getProducts(category?: string, search?: string, includeBlocked = false): Promise<Product[]> {
     let products: Product[];
 
     if (category) {
@@ -173,6 +186,7 @@ export class DynamoStorage implements IStorage {
       products = items.map(toProduct);
     }
 
+    if (!includeBlocked) products = products.filter((product) => product.shopVisible !== false);
     const needle = search?.trim().toLowerCase();
     if (!needle) return products;
     return products.filter((product) => [
@@ -191,10 +205,16 @@ export class DynamoStorage implements IStorage {
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
+    const stockMode = product.stockMode ?? (product.stockAvailable === "Made to order" ? "made_to_order" : "tracked");
+    const stockQuantity = stockMode === "made_to_order" ? undefined : product.stockQuantity ?? 0;
     const created: Product = {
       ...product,
       madeFrom: product.madeFrom ?? "",
+      stockMode,
+      stockQuantity,
+      stockAvailable: getStockStatus(stockMode, stockQuantity),
       imageBackgroundColor: product.imageBackgroundColor ?? "#ffffff",
+      shopVisible: product.shopVisible ?? true,
       imageUrls: product.imageUrls ?? [],
       id: randomUUID(),
       createdAt: new Date().toISOString(),
@@ -232,7 +252,20 @@ export class DynamoStorage implements IStorage {
     const existing = await this.getProduct(id);
     if (!existing) return undefined;
 
-    const updated: Product = { ...existing, ...updates, id: existing.id, createdAt: existing.createdAt };
+    const stockMode = updates.stockMode ?? (updates.stockAvailable === "Made to order" ? "made_to_order" : existing.stockMode ?? "tracked");
+    const stockQuantity = stockMode === "made_to_order"
+      ? undefined
+      : updates.stockQuantity ?? existing.stockQuantity ?? 0;
+
+    const updated: Product = {
+      ...existing,
+      ...updates,
+      stockMode,
+      stockQuantity,
+      stockAvailable: getStockStatus(stockMode, stockQuantity),
+      id: existing.id,
+      createdAt: existing.createdAt,
+    };
     const writes: ConstructorParameters<typeof TransactWriteCommand>[0]["TransactItems"] = [
       {
         Put: {
@@ -286,9 +319,19 @@ export class DynamoStorage implements IStorage {
   }): Promise<{ order: Order; items: OrderItem[] }> {
     const lines: OrderItem[] = [];
     let merchandise = 0;
+    const requestedQuantities = new Map<string, number>();
     for (const requested of input.items) {
       const product = await this.getProduct(requested.productId);
       if (!product) throw new Error(`Product ${requested.productId} is no longer available`);
+      if (!product.shopVisible) throw new Error(`${product.name} is no longer available`);
+      if (product.stockMode !== "made_to_order") {
+        const totalRequested = (requestedQuantities.get(product.id) ?? 0) + requested.quantity;
+        requestedQuantities.set(product.id, totalRequested);
+        const available = product.stockQuantity ?? 0;
+        if (totalRequested > available) {
+          throw new Error(`Only ${available} of ${product.name} are currently in stock`);
+        }
+      }
       const selected = requested.options ?? [];
       for (const option of product.options ?? []) {
         const pick = selected.find((entry) => entry.name === option.name);
@@ -327,6 +370,7 @@ export class DynamoStorage implements IStorage {
       address: input.address,
       totalAmount: merchandise + 500,
       status: "new",
+      stockDeducted: false,
       unreadCount: 0,
       createdAt: new Date().toISOString(),
     };
@@ -609,17 +653,75 @@ export class DynamoStorage implements IStorage {
   }
 
   async setOrderStatus(id: string, status: string, paymentRequestAmount?: number): Promise<Order | undefined> {
-    const existing = await this.getOrder(id);
-    if (!existing) return undefined;
+    const bundle = await this.getOrder(id);
+    if (!bundle) return undefined;
+    const shouldDeductStock = status === "approved" && bundle.order.stockDeducted !== true;
     const order: Order = {
-      ...existing.order,
+      ...bundle.order,
       status,
+      ...(shouldDeductStock ? { stockDeducted: true } : {}),
       ...(paymentRequestAmount !== undefined ? { paymentRequestAmount } : {}),
     };
-    await doc.send(new PutCommand({
-      TableName: tableName,
-      Item: { pk: `ORDER#${id}`, sk: "META", ...order },
+
+    if (!shouldDeductStock) {
+      const updateExpression = paymentRequestAmount === undefined
+        ? "SET #status = :status"
+        : "SET #status = :status, paymentRequestAmount = :paymentRequestAmount";
+      const expressionValues = paymentRequestAmount === undefined
+        ? { ":status": status }
+        : { ":status": status, ":paymentRequestAmount": paymentRequestAmount };
+      await doc.send(new UpdateCommand({
+        TableName: tableName,
+        Key: { pk: `ORDER#${id}`, sk: "META" },
+        UpdateExpression: updateExpression,
+        ConditionExpression: "attribute_exists(pk)",
+        ExpressionAttributeNames: { "#status": "status" },
+        ExpressionAttributeValues: expressionValues,
+      }));
+      return order;
+    }
+
+    const requestedByProduct = new Map<string, number>();
+    for (const line of bundle.items) {
+      requestedByProduct.set(line.productId, (requestedByProduct.get(line.productId) ?? 0) + line.quantity);
+    }
+    const inventoryChanges: { product: Product; quantity: number }[] = [];
+    for (const [productId, quantity] of requestedByProduct) {
+      const product = await this.getProduct(productId);
+      if (!product) throw new Error(`Product ${productId} is no longer available`);
+      if (product.stockMode === "made_to_order") continue;
+      if ((product.stockQuantity ?? 0) < quantity) {
+        throw new Error(`Insufficient stock for ${product.name}: ${product.stockQuantity ?? 0} available, ${quantity} ordered`);
+      }
+      inventoryChanges.push({ product, quantity });
+    }
+
+    const orderWrite = {
+      Put: {
+        TableName: tableName,
+        Item: { pk: `ORDER#${id}`, sk: "META", ...order },
+        ConditionExpression: "attribute_exists(pk) AND (attribute_not_exists(stockDeducted) OR stockDeducted = :notDeducted)",
+        ExpressionAttributeValues: { ":notDeducted": false },
+      },
+    };
+    const inventoryWrites = inventoryChanges.map(({ product, quantity }) => ({
+      Update: {
+        TableName: tableName,
+        Key: productKey(product.id),
+        UpdateExpression: "SET stockQuantity = stockQuantity - :quantity",
+        ConditionExpression: "stockMode = :tracked AND stockQuantity >= :quantity",
+        ExpressionAttributeValues: { ":quantity": quantity, ":tracked": "tracked" },
+      },
     }));
+
+    try {
+      await doc.send(new TransactWriteCommand({ TransactItems: [...inventoryWrites, orderWrite] }));
+    } catch (err) {
+      if (err instanceof Error && err.name === "TransactionCanceledException") {
+        throw new Error("Stock changed while this order was being updated. Refresh the order and try again.");
+      }
+      throw err;
+    }
     return order;
   }
 

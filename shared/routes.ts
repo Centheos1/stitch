@@ -101,7 +101,7 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   return url;
 }
 
-export type ProductInput = z.infer<typeof api.products.create.input>;
+export type ProductInput = z.input<typeof api.products.create.input>;
 export type ProductResponse = z.infer<typeof api.products.create.responses[201]>;
 export type OrderInput = z.infer<typeof api.orders.create.input>;
 export type OrderResponse = z.infer<typeof api.orders.create.responses[201]>;

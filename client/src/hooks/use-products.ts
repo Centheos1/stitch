@@ -29,6 +29,18 @@ export function useProducts(category?: string, search?: string) {
   });
 }
 
+export function useAdminProducts() {
+  return useQuery({
+    queryKey: ["/api/admin/products"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/products", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch admin products");
+      const data = await res.json();
+      return parseWithLogging(api.products.list.responses[200], data, "admin.products.list");
+    },
+  });
+}
+
 export function useProduct(id: string) {
   return useQuery({
     queryKey: [api.products.get.path, id],
@@ -71,6 +83,7 @@ export function useCreateProduct() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
     },
   });
 }
@@ -102,6 +115,7 @@ export function useUpdateProduct() {
     },
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       queryClient.invalidateQueries({ queryKey: [api.products.get.path, id] });
     },
   });
@@ -119,6 +133,7 @@ export function useDeleteProduct() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
     },
   });
 }

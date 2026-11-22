@@ -31,10 +31,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/products", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.getProducts(undefined, undefined, true));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get(api.products.get.path, async (req, res) => {
     try {
       const product = await storage.getProduct(String(req.params.id));
-      if (!product) {
+      if (!product || !product.shopVisible) {
         return res.status(404).json({ message: "Product not found" });
       }
       res.json(product);
@@ -129,8 +138,8 @@ export async function registerRoutes(
         });
       }
       const message = err instanceof Error ? err.message : "Internal server error";
-      const status = message.includes("no longer available") || message.includes("Choose") || message.includes("is not a") ? 400 : 500;
-      res.status(status).json({ message: status === 400 ? message : "Internal server error" });
+      const status = message.includes("no longer available") || message.includes("Choose") || message.includes("is not a") ? 400 : message.includes("in stock") ? 409 : 500;
+      res.status(status).json({ message: status === 500 ? "Internal server error" : message });
     }
   });
 
@@ -328,13 +337,14 @@ export async function registerRoutes(
   app.post("/api/admin/orders/:id/status", requireAdmin, async (req, res) => {
     try {
       const status = String(req.body?.status ?? "");
-      if (!["paid", "fulfilled", "declined", "new"].includes(status)) {
+      if (!["approved", "paid", "fulfilled", "declined", "new"].includes(status)) {
         return res.status(400).json({ message: "That status is not available." });
       }
       const bundle = await storage.getOrder(String(req.params.id));
       if (!bundle) return res.status(404).json({ message: "Order not found" });
       const order = await storage.setOrderStatus(bundle.order.id, status);
       const notes: Record<string, string> = {
+        approved: "Your order has been approved.",
         paid: "We've received your payment. Thank you.",
         fulfilled: "Your order is finished and on its way.",
         declined: "We can't take this order. Reply if you'd like to talk it through.",
@@ -351,6 +361,10 @@ export async function registerRoutes(
       res.json(order);
     } catch (err) {
       console.error(err);
+      const message = err instanceof Error ? err.message : "";
+      if (message.startsWith("Insufficient stock") || message.startsWith("Stock changed")) {
+        return res.status(409).json({ message });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -434,7 +448,7 @@ async function sendOrderNote(input: {
 }
 
 async function seedDatabase() {
-  const existingProducts = await storage.getProducts();
+  const existingProducts = await storage.getProducts(undefined, undefined, true);
   if (existingProducts.length === 0) {
     const seedProducts = [
       {
