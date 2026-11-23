@@ -1,11 +1,34 @@
 import { randomUUID } from "crypto";
 import { INBOX_FROM_ADDRESSES, type MailAttachment, type OrderMessage } from "@shared/schema";
-import { deliver, textToHtml } from "./mail";
+import { deliver, makeMessageId, textToHtml } from "./mail";
 import { copyObject, deleteObjects, describeObject, objectKeys, putHtml, readBytes, readHtml } from "./mail-files";
 import { htmlToText, renderMailHtml, sanitizeMailHtml } from "./mail-html";
 import { storage } from "./storage";
 
 export class MailInputError extends Error {}
+
+export async function saveContactMessage({ email, message }: { email: string; message: string }): Promise<void> {
+  const id = randomUUID();
+  const subject = "Website contact form";
+  await storage.saveThreadMessage({
+    threadId: id,
+    subject,
+    correspondent: email,
+    snippet: message,
+    message: {
+      id,
+      direction: "in",
+      kind: "contact",
+      from: email,
+      to: INBOX_FROM_ADDRESSES[0],
+      subject,
+      text: message,
+      // Include a stable reference in the first reply so incoming mail can find this thread.
+      messageId: makeMessageId(),
+      createdAt: new Date().toISOString(),
+    },
+  });
+}
 
 function parseAddressList(value: string): string[] {
   if (!value.trim()) return [];

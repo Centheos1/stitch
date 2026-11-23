@@ -1,6 +1,41 @@
-import { Mail } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@shared/routes";
+import type { FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Contact() {
+  const contact = api.contact.submit;
+  const send = useMutation({
+    mutationFn: async (data: FormData) => {
+      const input = contact.input.safeParse({
+        email: data.get("email"),
+        message: data.get("message"),
+      });
+      if (!input.success) {
+        throw new Error(input.error.issues[0].message);
+      }
+      const response = await fetch(contact.path, {
+        method: contact.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input.data),
+      });
+      if (response.status !== 204) {
+        throw new Error("We couldn't send your message. Please try again.");
+      }
+    },
+  });
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!send.isPending) {
+      send.mutate(new FormData(form), { onSuccess: () => form.reset() });
+    }
+  }
+
   return (
     <div className="min-h-screen py-16">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -9,18 +44,28 @@ export default function Contact() {
           <p className="text-lg text-muted-foreground">We'd love to hear from you.</p>
         </div>
 
-        <div className="mx-auto max-w-xl">
-          <div className="bg-white p-10 rounded-[2.5rem] border border-border shadow-sm text-center hover:shadow-xl transition-all">
-            <div className="mx-auto w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6">
-              <Mail className="h-8 w-8" />
+        <form onSubmit={submit} className="mx-auto max-w-xl rounded-[2.5rem] border border-border bg-white p-6 shadow-sm sm:p-10">
+          <fieldset disabled={send.isPending} className="space-y-5">
+            <legend className="mb-5 font-display text-2xl font-bold">Send us a message</legend>
+            <div className="space-y-2">
+              <Label htmlFor="contact-email">Email address</Label>
+              <Input id="contact-email" name="email" type="email" autoComplete="email" required maxLength={254} className="h-12 rounded-xl" />
             </div>
-            <h3 className="font-display text-2xl font-bold mb-2">Email Us</h3>
-            <p className="text-muted-foreground mb-4">For questions, custom orders, or just to say hi!</p>
-            <a href="mailto:hello@stitchhandmade.com" className="font-bold text-xl text-primary hover:underline">
-              hello@stitchhandmade.com
-            </a>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="contact-message">Message</Label>
+              <Textarea id="contact-message" name="message" rows={7} required maxLength={10000} className="rounded-xl" />
+            </div>
+            <Button type="submit" size="lg" className="w-full rounded-xl sm:w-auto">
+              {send.isPending ? "Sending…" : "Send message"}
+            </Button>
+          </fieldset>
+          {send.isSuccess && (
+            <p role="status" className="mt-5 text-sm text-green-800">Thanks for reaching out! We'll reply by email.</p>
+          )}
+          {send.isError && (
+            <p role="alert" className="mt-5 text-sm text-red-700">{send.error.message}</p>
+          )}
+        </form>
       </div>
     </div>
   );

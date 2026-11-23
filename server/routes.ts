@@ -7,7 +7,7 @@ import { createImageUpload } from "./images";
 import { changePassword, login, logout, requireAdmin } from "./auth";
 import { deliver, MAIL_FROM, replyAddress, textToHtml } from "./mail";
 import { putHtml, readBytes, createOutgoingUpload, deleteObjects } from "./mail-files";
-import { MailInputError, messageHtml, removeThread, sendInboxMail } from "./inbox";
+import { MailInputError, messageHtml, removeThread, saveContactMessage, sendInboxMail } from "./inbox";
 import type { OrderMessage } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -19,6 +19,21 @@ export async function registerRoutes(
   // Load balancer health check. Must stay in sync with healthCheckPath in the API stack.
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.post(api.contact.submit.path, async (req, res) => {
+    const input = api.contact.submit.input.safeParse(req.body);
+    if (!input.success) {
+      return res.status(400).json({ message: "Enter a valid email address and a message of up to 10,000 characters." });
+    }
+
+    try {
+      await saveContactMessage(input.data);
+      res.status(204).end();
+    } catch (err) {
+      console.error("Unable to save contact message", err);
+      res.status(500).json({ message: "We couldn't send your message. Please try again." });
+    }
   });
 
   app.get(api.products.list.path, async (req, res) => {

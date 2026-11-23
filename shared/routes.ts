@@ -15,6 +15,16 @@ export const errorSchemas = {
 };
 
 export const api = {
+  contact: {
+    submit: {
+      method: "POST" as const,
+      path: "/api/contact" as const,
+      input: z.object({
+        email: z.string().trim().max(254).email("Enter a valid email address."),
+        message: z.string().trim().min(1, "Enter a message.").max(10000, "Use 10,000 characters or fewer."),
+      }),
+    },
+  },
   products: {
     list: {
       method: "GET" as const,

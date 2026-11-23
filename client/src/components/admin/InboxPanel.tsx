@@ -162,7 +162,9 @@ export function InboxPanel() {
   const startReply = (nextMode: "reply" | "replyAll" | "forward") => {
     const latest = bundle?.messages[bundle.messages.length - 1];
     const ours = new Set<string>([...INBOX_FROM_ADDRESSES, "orders@stitchhandmade.shop", from]);
-    const keep = (value: string) => value.split(/[,;]/).map((part) => part.trim()).filter((address) => address && !ours.has(address.toLowerCase()) && !address.toLowerCase().startsWith("order-"));
+    const keep = (value: string) => value.split(/[,;]/).map((part) => part.trim()).filter((address) =>
+      address && !ours.has(address.toLowerCase()) && !/^order-[0-9a-f-]{36}@stitchhandmade\.shop$/i.test(address)
+    );
     setMode(nextMode);
     setComposing(true);
     setHtml("");
@@ -176,7 +178,7 @@ export function InboxPanel() {
       return;
     }
     const recipient = latest?.direction === "in" ? latest.from : latest?.to || "";
-    setTo(keep(recipient).join(", "));
+    setTo(latest?.kind === "contact" ? recipient : keep(recipient).join(", "));
     setCc(nextMode === "replyAll" ? [...keep(latest?.to || ""), ...keep(latest?.cc || "")].join(", ") : "");
     setBcc("");
   };

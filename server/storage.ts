@@ -535,41 +535,47 @@ export class DynamoStorage implements IStorage {
     const message: OrderMessage = { ...input.message, threadId: input.threadId };
     const pk = `THREAD#${input.threadId}`;
     const sk = `MSG#${message.createdAt}#${message.id}`;
-    await doc.send(new PutCommand({
-      TableName: tableName,
-      Item: { pk, sk, ...message },
-    }));
-    await doc.send(new PutCommand({
-      TableName: tableName,
-      Item: { pk: `MAILMSG#${message.id}`, sk: "META", messagePk: pk, messageSk: sk },
-    }));
-    if (message.messageId) {
-      await doc.send(new PutCommand({
-        TableName: tableName,
-        Item: {
-          pk: `EMAIL#${emailKey(message.messageId)}`,
-          sk: "META",
-          orderId: "",
-          threadId: input.threadId,
-          messagePk: pk,
-          messageSk: sk,
+    const writes: NonNullable<ConstructorParameters<typeof TransactWriteCommand>[0]["TransactItems"]> = [
+      { Put: { TableName: tableName, Item: { pk, sk, ...message } } },
+      {
+        Put: {
+          TableName: tableName,
+          Item: { pk: `MAILMSG#${message.id}`, sk: "META", messagePk: pk, messageSk: sk },
         },
-      }));
-    }
-    await doc.send(new UpdateCommand({
-      TableName: tableName,
-      Key: { pk: "MAILBOX#inbox", sk: `THREAD#${input.threadId}` },
-      UpdateExpression: "SET threadId = :thread, subject = if_not_exists(subject, :subject), correspondent = :correspondent, snippet = :snippet, lastMessageAt = :at, archived = :open ADD unreadCount :one",
-      ExpressionAttributeValues: {
-        ":thread": input.threadId,
-        ":subject": input.subject,
-        ":correspondent": input.correspondent,
-        ":snippet": input.snippet.slice(0, 140),
-        ":at": message.createdAt,
-        ":open": false,
-        ":one": message.direction === "in" ? 1 : 0,
       },
-    }));
+    ];
+    if (message.messageId) {
+      writes.push({
+        Put: {
+          TableName: tableName,
+          Item: {
+            pk: `EMAIL#${emailKey(message.messageId)}`,
+            sk: "META",
+            orderId: "",
+            threadId: input.threadId,
+            messagePk: pk,
+            messageSk: sk,
+          },
+        },
+      });
+    }
+    writes.push({
+      Update: {
+        TableName: tableName,
+        Key: { pk: "MAILBOX#inbox", sk: `THREAD#${input.threadId}` },
+        UpdateExpression: "SET threadId = :thread, subject = if_not_exists(subject, :subject), correspondent = :correspondent, snippet = :snippet, lastMessageAt = :at, archived = :open ADD unreadCount :one",
+        ExpressionAttributeValues: {
+          ":thread": input.threadId,
+          ":subject": input.subject,
+          ":correspondent": input.correspondent,
+          ":snippet": input.snippet.slice(0, 140),
+          ":at": message.createdAt,
+          ":open": false,
+          ":one": message.direction === "in" ? 1 : 0,
+        },
+      },
+    });
+    await doc.send(new TransactWriteCommand({ TransactItems: writes, ClientRequestToken: message.id }));
   }
 
   async setThreadArchived(threadId: string, archived: boolean): Promise<void> {

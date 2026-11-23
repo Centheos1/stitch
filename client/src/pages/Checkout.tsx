@@ -3,12 +3,12 @@ import { useCreateOrder } from "@/hooks/use-orders";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation } from "wouter";
+import { Link, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 
 const checkoutSchema = z.object({
@@ -20,10 +20,15 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 export default function Checkout() {
-  const [, setLocation] = useLocation();
   const { items, getCartTotal, clearCart } = useCart();
   const createOrder = useCreateOrder();
-  const [isSuccess, setIsSuccess] = useState(false);
+  const { isSuccess } = createOrder;
+
+  useEffect(() => {
+    if (isSuccess) {
+      clearCart();
+    }
+  }, [isSuccess, clearCart]);
 
   const subtotal = getCartTotal(); // in cents
   const shipping = 500; // in cents
@@ -33,11 +38,6 @@ export default function Checkout() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: { name: "", email: "", address: "" },
   });
-
-  if (items.length === 0 && !isSuccess) {
-    setLocation("/cart");
-    return null;
-  }
 
   if (isSuccess) {
     return (
@@ -49,15 +49,19 @@ export default function Checkout() {
         >
           <CheckCircle2 className="h-24 w-24" />
         </motion.div>
-        <h1 className="font-display text-4xl font-bold mb-4">Request received</h1>
+        <h1 className="font-display text-4xl font-bold mb-4">Thank you for your order request!</h1>
         <p className="text-xl text-muted-foreground mb-8 max-w-md">
-          Thank you. We'll email you about the details and payment. Nothing has been charged.
+          We've received your request and will email you about the details and payment. Nothing has been charged.
         </p>
-        <Button onClick={() => setLocation("/")} size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold">
-          Return Home
+        <Button asChild size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold">
+          <Link href="/">Return Home</Link>
         </Button>
       </div>
     );
+  }
+
+  if (items.length === 0) {
+    return <Redirect to="/cart" replace />;
   }
 
   const onSubmit = (data: CheckoutFormData) => {
@@ -67,18 +71,10 @@ export default function Checkout() {
       options: item.options ?? [],
     }));
 
-    createOrder.mutate(
-      {
-        ...data,
-        items: orderItems,
-      },
-      {
-        onSuccess: () => {
-          clearCart();
-          setIsSuccess(true);
-        },
-      }
-    );
+    createOrder.mutate({
+      ...data,
+      items: orderItems,
+    });
   };
 
   return (
