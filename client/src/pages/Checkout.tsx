@@ -1,5 +1,6 @@
 import { useCart } from "@/hooks/use-cart";
 import { useCreateOrder } from "@/hooks/use-orders";
+import { toast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -71,10 +72,16 @@ export default function Checkout() {
       options: item.options ?? [],
     }));
 
-    createOrder.mutate({
-      ...data,
-      items: orderItems,
-    });
+    createOrder.mutate(
+      { ...data, items: orderItems },
+      {
+        onError: (error) => toast({
+          variant: "destructive",
+          title: "Couldn’t submit your order request",
+          description: error.message,
+        }),
+      },
+    );
   };
 
   return (

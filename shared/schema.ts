@@ -124,7 +124,10 @@ export const INBOX_FROM_ADDRESSES = [
   "audrey@stitchhandmade.shop",
 ] as const;
 
-export const insertProductSchema = productSchema.omit({ id: true, createdAt: true });
+export const insertProductSchema = productSchema.omit({ id: true, createdAt: true, shopVisible: true }).extend({
+  // Keep this field optional on updates so editing a hidden product doesn't republish it.
+  shopVisible: z.boolean().optional(),
+});
 export const insertOrderSchema = orderSchema.omit({ id: true, createdAt: true, status: true });
 export const insertOrderItemSchema = orderItemSchema.omit({ id: true });
 

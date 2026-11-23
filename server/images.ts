@@ -19,10 +19,10 @@ const client = new S3Client({ region });
  * CloudFront uses to serve it. The path is what gets stored on the product.
  */
 export async function createImageUpload(contentType: string): Promise<{ uploadUrl: string; url: string }> {
-  const extension = extensions[contentType];
-  if (!extension) {
+  if (!Object.hasOwn(extensions, contentType)) {
     throw new Error("Only JPEG, PNG, WebP, and GIF images can be uploaded");
   }
+  const extension = extensions[contentType];
 
   const key = `images/${randomUUID()}${extension}`;
   const uploadUrl = await getSignedUrl(

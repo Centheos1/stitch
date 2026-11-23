@@ -1,6 +1,6 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import type { Server } from "http";
+import { OrderRequestError, storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { createImageUpload } from "./images";
@@ -10,6 +10,7 @@ import { putHtml, readBytes, createOutgoingUpload, deleteObjects } from "./mail-
 import { MailInputError, messageHtml, removeThread, saveContactMessage, sendInboxMail } from "./inbox";
 import type { OrderMessage } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { logError } from "./logging";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -31,7 +32,7 @@ export async function registerRoutes(
       await saveContactMessage(input.data);
       res.status(204).end();
     } catch (err) {
-      console.error("Unable to save contact message", err);
+      logError("Save contact message", err);
       res.status(500).json({ message: "We couldn't send your message. Please try again." });
     }
   });
@@ -39,9 +40,14 @@ export async function registerRoutes(
   app.get(api.products.list.path, async (req, res) => {
     try {
       const { category, search } = req.query;
-      const products = await storage.getProducts(category as string, search as string);
+      if ((category !== undefined && typeof category !== "string") ||
+          (search !== undefined && typeof search !== "string")) {
+        return res.status(400).json({ message: "Invalid product filters." });
+      }
+      const products = await storage.getProducts(category, search);
       res.json(products);
     } catch (err) {
+      logError("List storefront products", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -50,7 +56,7 @@ export async function registerRoutes(
     try {
       res.json(await storage.getProducts(undefined, undefined, true));
     } catch (err) {
-      console.error(err);
+      logError("List admin products", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -63,6 +69,7 @@ export async function registerRoutes(
       }
       res.json(product);
     } catch (err) {
+      logError("Open storefront product", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -78,8 +85,8 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          message: err.issues[0].message,
+          field: err.issues[0].path.join('.'),
         });
       }
       res.status(500).json({ message: "Internal server error" });
@@ -100,8 +107,8 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          message: err.issues[0].message,
+          field: err.issues[0].path.join('.'),
         });
       }
       res.status(500).json({ message: "Internal server error" });
@@ -143,18 +150,23 @@ export async function registerRoutes(
         subject: "Your STITCH request",
         text,
         kind: "order",
+      }).catch((err) => {
+        // The order is already saved. Returning an error here invites a duplicate submission.
+        logError("Record order confirmation email", err);
       });
       res.status(201).json(order);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join("."),
+          message: err.issues[0].message,
+          field: err.issues[0].path.join("."),
         });
       }
-      const message = err instanceof Error ? err.message : "Internal server error";
-      const status = message.includes("no longer available") || message.includes("Choose") || message.includes("is not a") ? 400 : message.includes("in stock") ? 409 : 500;
-      res.status(status).json({ message: status === 500 ? "Internal server error" : message });
+      if (err instanceof OrderRequestError) {
+        return res.status(err.status).json({ message: err.message });
+      }
+      logError("Create order", err);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
@@ -162,7 +174,7 @@ export async function registerRoutes(
     try {
       res.json(await storage.listOrders());
     } catch (err) {
-      console.error(err);
+      logError("List orders", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -172,7 +184,7 @@ export async function registerRoutes(
       const archived = req.query.box === "archive";
       res.json(await storage.listMailThreads(archived));
     } catch (err) {
-      console.error(err);
+      logError("List inbox threads", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -184,7 +196,7 @@ export async function registerRoutes(
       await storage.markThreadRead(found.thread.threadId);
       res.json({ ...found, thread: { ...found.thread, unreadCount: 0 } });
     } catch (err) {
-      console.error(err);
+      logError("Open inbox thread", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -207,7 +219,7 @@ export async function registerRoutes(
       await removeThread(String(req.params.threadId));
       res.json({ success: true });
     } catch (err) {
-      console.error(err);
+      logError("Delete inbox thread", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -230,7 +242,7 @@ export async function registerRoutes(
       res.status(201).json(sent);
     } catch (err) {
       if (err instanceof MailInputError) return res.status(400).json({ message: err.message });
-      console.error(err);
+      logError("Send inbox mail", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -245,8 +257,11 @@ export async function registerRoutes(
       }
       res.json(await createOutgoingUpload(contentType, filename));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Upload failed";
-      res.status(400).json({ message });
+      if (err instanceof Error && err.message === "That file type is not supported") {
+        return res.status(400).json({ message: err.message });
+      }
+      logError("Prepare mail upload", err);
+      res.status(500).json({ message: "Could not prepare the attachment upload." });
     }
   });
 
@@ -259,7 +274,7 @@ export async function registerRoutes(
       await deleteObjects([key]);
       res.json({ success: true });
     } catch (err) {
-      console.error(err);
+      logError("Delete mail uploads", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -270,7 +285,7 @@ export async function registerRoutes(
       if (!message) return res.status(404).json({ message: "Message not found" });
       res.json({ html: await messageHtml(message) });
     } catch (err) {
-      console.error(err);
+      logError("Read mailbox message", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -281,12 +296,11 @@ export async function registerRoutes(
       const file = message?.attachments?.find((entry) => entry.id === String(req.params.attachmentId));
       if (!file) return res.status(404).json({ message: "Attachment not found" });
       const bytes = await readBytes(file.key);
-      const filename = file.filename.replace(/"/g, "");
+      res.attachment(file.filename);
       res.setHeader("Content-Type", file.contentType || "application/octet-stream");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.send(bytes);
     } catch (err) {
-      console.error(err);
+      logError("Download mailbox attachment", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -298,7 +312,7 @@ export async function registerRoutes(
       await storage.markOrderRead(bundle.order.id);
       res.json({ ...bundle, order: { ...bundle.order, unreadCount: 0 } });
     } catch (err) {
-      console.error(err);
+      logError("Open order", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -344,7 +358,7 @@ export async function registerRoutes(
       );
       res.status(201).json({ message, order });
     } catch (err) {
-      console.error(err);
+      logError("Send order message", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -375,7 +389,7 @@ export async function registerRoutes(
       }
       res.json(order);
     } catch (err) {
-      console.error(err);
+      logError("Update order status", err);
       const message = err instanceof Error ? err.message : "";
       if (message.startsWith("Insufficient stock") || message.startsWith("Stock changed")) {
         return res.status(409).json({ message });
@@ -392,8 +406,11 @@ export async function registerRoutes(
       await storage.attachMail(String(req.params.messageId), orderId);
       res.json({ success: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Internal server error";
-      res.status(message === "Message not found" ? 404 : 500).json({ message });
+      if (err instanceof Error && err.message === "Message not found") {
+        return res.status(404).json({ message: err.message });
+      }
+      logError("Attach inbox message to order", err);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
@@ -403,8 +420,11 @@ export async function registerRoutes(
       const upload = await createImageUpload(contentType);
       res.json(upload);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Upload failed";
-      res.status(400).json({ message });
+      if (err instanceof Error && err.message === "Only JPEG, PNG, WebP, and GIF images can be uploaded") {
+        return res.status(400).json({ message: err.message });
+      }
+      logError("Prepare product image upload", err);
+      res.status(500).json({ message: "Could not prepare the image upload." });
     }
   });
 
@@ -415,9 +435,6 @@ export async function registerRoutes(
     res.setHeader("Cache-Control", "no-store");
     res.json({ success: true });
   });
-
-  // Seed DB on startup
-  seedDatabase().catch(console.error);
 
   return httpServer;
 }
@@ -460,52 +477,4 @@ async function sendOrderNote(input: {
   };
   await storage.saveOrderMessage(input.orderId, message);
   return message;
-}
-
-async function seedDatabase() {
-  const existingProducts = await storage.getProducts(undefined, undefined, true);
-  if (existingProducts.length === 0) {
-    const seedProducts = [
-      {
-        name: "Handmade Felt Fox",
-        description: "A cute little fox made from 100% wool felt. Perfect for a woodland nursery or as a shelf decoration.",
-        price: 1500,
-        category: "Animals",
-        imageUrls: ["https://images.unsplash.com/photo-1558235282-5989d38c644c?w=500&q=80"],
-      },
-      {
-        name: "Embroidered Tote Bag",
-        description: "Sturdy canvas tote bag featuring a colorful embroidered floral pattern. Great for groceries or books.",
-        price: 2500,
-        category: "Bags",
-        imageUrls: ["https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&q=80"],
-      },
-      {
-        name: "Knitted Winter Scarf",
-        description: "Chunky knit scarf in warm yellow. Very soft and cozy for cold winter days.",
-        price: 3500,
-        category: "Other Handmade Items",
-        imageUrls: ["https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=500&q=80"],
-      },
-      {
-        name: "Floral Hair Clips Set",
-        description: "Set of three handmade hair clips decorated with miniature felt flowers.",
-        price: 1200,
-        category: "Hair Clips",
-        imageUrls: ["https://images.unsplash.com/photo-1596755389378-c31d21fd1273?w=500&q=80"],
-      },
-      {
-        name: "Felt Christmas Star",
-        description: "Hand-stitched felt Christmas star ornament with gold thread detailing.",
-        price: 850,
-        category: "Christmas Decorations",
-        imageUrls: ["https://images.unsplash.com/photo-1543258103-a62bdc069871?w=500&q=80"],
-      }
-    ];
-
-    for (const product of seedProducts) {
-      await storage.createProduct(product);
-    }
-    console.log("Database seeded with initial products.");
-  }
 }

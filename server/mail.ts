@@ -2,6 +2,7 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import MailComposer from "nodemailer/lib/mail-composer/index.js";
 import { randomUUID } from "crypto";
 import { INBOX_FROM_ADDRESSES } from "@shared/schema";
+import { logError } from "./logging";
 
 const client = new SESv2Client({
   region: process.env.AWS_REGION || "ap-southeast-2",
@@ -114,8 +115,7 @@ export async function deliver(mail: OutboundMail): Promise<DeliveryResult> {
     }));
     return { messageId, delivered: true };
   } catch (err) {
-    const deliveryError = err instanceof Error ? err.message : "Email was not sent";
-    console.error("Email failed", deliveryError);
-    return { messageId, delivered: false, deliveryError };
+    logError("Send email", err);
+    return { messageId, delivered: false, deliveryError: "Email was not sent. Please try again." };
   }
 }

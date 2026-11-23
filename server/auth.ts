@@ -1,6 +1,7 @@
 import { GetSecretValueCommand, PutSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { createHmac, timingSafeEqual } from "crypto";
 import type { NextFunction, Request, Response } from "express";
+import { logError } from "./logging";
 
 const COOKIE_NAME = "stitch_admin";
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -97,7 +98,11 @@ function readCookie(req: Request): string | undefined {
     if (separator === -1) continue;
     const name = part.slice(0, separator).trim();
     if (name !== COOKIE_NAME) continue;
-    return decodeURIComponent(part.slice(separator + 1).trim());
+    try {
+      return decodeURIComponent(part.slice(separator + 1).trim());
+    } catch {
+      return undefined;
+    }
   }
   return undefined;
 }
@@ -148,6 +153,7 @@ async function sessionIsValid(req: Request): Promise<boolean> {
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  res.setHeader("Cache-Control", "no-store");
   void sessionIsValid(req).then(
     (valid) => {
       if (!valid) {
@@ -158,7 +164,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
       next();
     },
     (err) => {
-      console.error("Admin session check failed", err);
+      logError("Check admin session", err);
       res.setHeader("Cache-Control", "no-store");
       res.status(500).json({ message: "Could not check admin session" });
     },
@@ -196,7 +202,7 @@ export function login(req: Request, res: Response): void {
     res.setHeader("Cache-Control", "no-store");
     res.json({ success: true });
   })().catch((err) => {
-    console.error("Admin login failed", err);
+    logError("Admin login", err);
     res.setHeader("Cache-Control", "no-store");
     res.status(500).json({ message: "Could not verify the password" });
   });
@@ -247,7 +253,7 @@ export function changePassword(req: Request, res: Response): void {
     res.setHeader("Cache-Control", "no-store");
     res.json({ success: true });
   })().catch((err) => {
-    console.error("Admin password change failed", err);
+    logError("Change admin password", err);
     res.setHeader("Cache-Control", "no-store");
     res.status(500).json({ message: "Could not update the password" });
   });

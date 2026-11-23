@@ -142,8 +142,11 @@ export default function ProductDetail() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
         <h1 className="font-display text-4xl font-bold mb-4 text-destructive">Oops!</h1>
         <p className="text-xl text-muted-foreground mb-8">We couldn't find that special item.</p>
-        <Link href="/shop">
-          <Button size="lg" className="rounded-2xl h-14 px-8">Back to Shop</Button>
+        <Button asChild size="lg" className="rounded-2xl h-14 px-8">
+          <Link href="/shop">Back to Shop</Link>
+        </Button>
+        <Link href="/" className="mt-4 text-sm font-semibold text-primary hover:underline">
+          Return Home
         </Link>
       </div>
     );

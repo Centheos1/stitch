@@ -1,15 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl, type ProductInput, type ProductResponse } from "@shared/routes";
-import { z } from "zod";
-
-function parseWithLogging<T>(schema: z.ZodSchema<T>, data: unknown, label: string): T {
-  const result = schema.safeParse(data);
-  if (!result.success) {
-    console.error(`[Zod] ${label} validation failed:`, result.error.format());
-    throw result.error;
-  }
-  return result.data;
-}
 
 export function useProducts(category?: string, search?: string) {
   return useQuery({
@@ -24,7 +14,7 @@ export function useProducts(category?: string, search?: string) {
       if (!res.ok) throw new Error("Failed to fetch products");
       
       const data = await res.json();
-      return parseWithLogging(api.products.list.responses[200], data, "products.list");
+      return api.products.list.responses[200].parse(data);
     },
   });
 }
@@ -36,7 +26,7 @@ export function useAdminProducts() {
       const res = await fetch("/api/admin/products", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch admin products");
       const data = await res.json();
-      return parseWithLogging(api.products.list.responses[200], data, "admin.products.list");
+      return api.products.list.responses[200].parse(data);
     },
   });
 }
@@ -53,7 +43,7 @@ export function useProduct(id: string) {
       if (!res.ok) throw new Error("Failed to fetch product");
       
       const data = await res.json();
-      return parseWithLogging(api.products.get.responses[200], data, "products.get");
+      return api.products.get.responses[200].parse(data);
     },
     enabled: !!id,
   });
@@ -79,7 +69,7 @@ export function useCreateProduct() {
       }
       
       const responseData = await res.json();
-      return parseWithLogging(api.products.create.responses[201], responseData, "products.create");
+      return api.products.create.responses[201].parse(responseData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
@@ -111,7 +101,7 @@ export function useUpdateProduct() {
       }
       
       const responseData = await res.json();
-      return parseWithLogging(api.products.update.responses[200], responseData, "products.update");
+      return api.products.update.responses[200].parse(responseData);
     },
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: [api.products.list.path] });

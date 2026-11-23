@@ -29,6 +29,12 @@ import { doc, tableName } from "./dynamo";
 
 const PRODUCT_INDEX = "gsi1";
 
+export class OrderRequestError extends Error {
+  constructor(message: string, readonly status: 400 | 409 = 400) {
+    super(message);
+  }
+}
+
 export interface IStorage {
   getProducts(category?: string, search?: string, includeBlocked?: boolean): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
@@ -322,27 +328,28 @@ export class DynamoStorage implements IStorage {
     const requestedQuantities = new Map<string, number>();
     for (const requested of input.items) {
       const product = await this.getProduct(requested.productId);
-      if (!product) throw new Error(`Product ${requested.productId} is no longer available`);
-      if (!product.shopVisible) throw new Error(`${product.name} is no longer available`);
+      if (!product || !product.shopVisible) {
+        throw new OrderRequestError("An item in your cart is no longer available.");
+      }
       if (product.stockMode !== "made_to_order") {
         const totalRequested = (requestedQuantities.get(product.id) ?? 0) + requested.quantity;
         requestedQuantities.set(product.id, totalRequested);
         const available = product.stockQuantity ?? 0;
         if (totalRequested > available) {
-          throw new Error(`Only ${available} of ${product.name} are currently in stock`);
+          throw new OrderRequestError(`Only ${available} of ${product.name} are currently in stock`, 409);
         }
       }
       const selected = requested.options ?? [];
       for (const option of product.options ?? []) {
         const pick = selected.find((entry) => entry.name === option.name);
         if (!pick || !option.choices.some((choice) => choice.label === pick.choice)) {
-          throw new Error(`Choose a ${option.name} for ${product.name}`);
+          throw new OrderRequestError(`Choose a ${option.name} for ${product.name}`);
         }
       }
       for (const pick of selected) {
         const option = (product.options ?? []).find((entry) => entry.name === pick.name);
         if (!option || !option.choices.some((choice) => choice.label === pick.choice)) {
-          throw new Error(`${pick.choice} is not a ${pick.name} option for ${product.name}`);
+          throw new OrderRequestError(`That option is unavailable for ${product.name}.`);
         }
       }
       let unitPrice = product.price;
@@ -363,12 +370,16 @@ export class DynamoStorage implements IStorage {
       });
     }
 
+    const totalAmount = merchandise + 500;
+    if (!Number.isSafeInteger(totalAmount)) {
+      throw new OrderRequestError("The order total is too large. Reduce your quantities and try again.");
+    }
     const order: Order = {
       id: randomUUID(),
       name: input.name,
       email: input.email,
       address: input.address,
-      totalAmount: merchandise + 500,
+      totalAmount,
       status: "new",
       stockDeducted: false,
       unreadCount: 0,

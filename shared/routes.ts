@@ -83,17 +83,21 @@ export const api = {
         items: z.array(
           z.object({
             productId: z.string(),
-            quantity: z.number().int().positive(),
+            quantity: z.number().int().positive().safe(),
             options: z.array(z.object({
               name: z.string(),
               choice: z.string(),
-            })).optional(),
+            })).refine(
+              (options) => new Set(options.map(({ name }) => name)).size === options.length,
+              "Choose one option per group.",
+            ).optional(),
           }),
-        ).min(1),
+        ).min(1).max(99, "An order can contain up to 99 cart lines."),
       }),
       responses: {
         201: orderSchema,
         400: errorSchemas.validation,
+        409: errorSchemas.validation,
       },
     },
   },

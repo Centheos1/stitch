@@ -36,6 +36,9 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Check application types
+        run: npm run check
+
       # Builds dist/public (React app, uploaded by CDK) and dist/index.cjs (API).
       - name: Build client and server
         run: npm run build

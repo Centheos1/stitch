@@ -20,7 +20,7 @@ const isValidImageSrc = (val: string) =>
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().min(1, "Description is required"),
-  madeFrom: z.string().default(""),
+  madeFrom: z.string(),
   priceStr: z.string().regex(/^\d+(\.\d{1,2})?$/, "Must be a valid price (e.g. 19.99)"),
   category: z.string().min(1, "Category is required"),
   imageUrls: z.array(z.string()).min(1, "At least one image is required"),
