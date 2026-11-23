@@ -52,7 +52,7 @@ export default function Shop() {
               <Input 
                 type="text" 
                 placeholder="Search items..." 
-                className="pl-10 rounded-xl bg-background border-border focus-visible:ring-[#A8E3BC]"
+                className="pl-10 rounded-xl bg-background border-border focus-visible:ring-[#36B960]"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -64,7 +64,7 @@ export default function Shop() {
               <Button
                 variant="ghost"
                 onClick={() => setSearchQuery("")}
-                className="w-24 px-1 text-sm whitespace-nowrap text-black hover:text-black hover:bg-muted rounded-xl focus-visible:ring-[#A8E3BC]"
+                className="w-24 px-1 text-sm whitespace-nowrap text-black hover:text-black hover:bg-muted rounded-xl focus-visible:ring-[#36B960]"
               >
                 Clear Search
               </Button>
@@ -79,7 +79,7 @@ export default function Shop() {
                     onClick={() => setActiveCategory(cat)}
                     className={`text-left px-4 py-3 rounded-xl transition-colors font-semibold ${
                       activeCategory === cat
-                        ? "bg-[#A8E3BC] text-[#14532D] shadow-md shadow-[#A8E3BC]/40"
+                        ? "bg-[#36B960] text-[#14532D] shadow-md shadow-[#2D9950]/40"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -134,7 +134,7 @@ export default function Shop() {
               </p>
               <Button 
                 onClick={() => { setActiveCategory("All"); setSearchQuery(""); setMinPrice(""); setMaxPrice(""); }}
-                className="mt-6 rounded-xl border border-[#A8E3BC] bg-[#A8E3BC] text-[#14532D] hover:bg-[#98DDAF] hover:text-[#14532D] focus-visible:ring-[#A8E3BC]"
+                className="mt-6 rounded-xl border border-[#36B960] bg-[#36B960] text-[#14532D] hover:border-[#2D9950] hover:bg-[#2D9950] hover:text-white focus-visible:ring-[#36B960]"
               >
                 View All Items
               </Button>

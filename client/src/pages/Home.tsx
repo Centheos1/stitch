@@ -6,14 +6,15 @@ import { ArrowRight, Sparkles, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 
 const CATEGORY_META: Record<string, { color: string; icon: string }> = {
-  "animals":              { color: "bg-[#FF6B6B]", icon: "🦒" },
+  "accessories":          { color: "bg-transparent border-2 border-[#60A5FA]", icon: "cream-bow-image" },
+  "animals":              { color: "bg-[#D11C30]", icon: "🦒" },
   "bags":                 { color: "bg-[#FFA06A]", icon: "👜" },
   "hair clips":           { color: "bg-[#FFD93D]", icon: "🎀" },
-  "christmas decorations":{ color: "bg-[#6BCB77]", icon: "🎄" },
+  "christmas decorations":{ color: "bg-transparent border-2 border-[#36B960]", icon: "stocking-image" },
   "other handmade items": { color: "bg-[#A78BFA]", icon: "✨" },
 };
 
-const FALLBACK_COLORS = ["bg-[#60A5FA]","bg-[#F472B6]","bg-[#34D399]","bg-[#FBBF24]","bg-[#F87171]"];
+const FALLBACK_COLORS = ["bg-[#60A5FA]","bg-[#D11C30]","bg-[#34D399]","bg-[#FBBF24]","bg-[#D11C30]"];
 
 function getCategoryMeta(name: string, index: number) {
   const key = name.toLowerCase();
@@ -38,7 +39,7 @@ export default function Home() {
               transition={{ duration: 0.6 }}
               className="max-w-2xl"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border-2 border-primary/20 text-primary font-bold text-sm mb-6 shadow-sm">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border-2 border-[#2D9950]/20 text-[#2D9950] font-bold text-sm mb-6 shadow-sm">
                 <Sparkles className="h-4 w-4" />
                 Handmade with Love
               </div>
@@ -50,12 +51,12 @@ export default function Home() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/shop">
-                  <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 hover:-translate-y-1 transition-all">
+                  <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold bg-[#2D9950] hover:bg-[#2D9950] shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 transition-all">
                     Shop Now
                   </Button>
                 </Link>
                 <Link href="/about">
-                  <Button variant="outline" size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold border-2 border-primary text-primary hover:bg-primary/5">
+                  <Button variant="outline" size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold border-2 border-[#2D9950] text-[#2D9950] hover:bg-[#2D9950]/5">
                     Our Story
                   </Button>
                 </Link>
@@ -71,7 +72,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-secondary/20 rounded-full blur-3xl -z-10 transform translate-x-10 translate-y-10"></div>
               {/* landing page hero colorful yarn crafts */}
               <img 
-                src="/uploads/1792993934547-969881.png"
+                src="/images/da76d455c0fbc1cd2a27d2f046814a2428073b7e53ecb5c136349dba21317122.png"
                 alt="Handmade felt nativity scene"
                 className="w-full h-auto rounded-[3rem] bg-white shadow-2xl border-4 border-white rotate-3"
               />
@@ -94,14 +95,20 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
               {dynamicCategories.map((name, i) => {
                 const { color, icon } = getCategoryMeta(name, i);
+                const isStockingImage = icon === "stocking-image";
+                const isCreamBowImage = icon === "cream-bow-image";
                 return (
                   <Link key={name} href={`/shop?category=${encodeURIComponent(name)}`}>
                     <motion.div
                       whileHover={{ scale: 1.05 }}
-                      className="cursor-pointer group flex flex-col items-center justify-center p-8 rounded-[2.5rem] bg-background border-2 border-border hover:border-transparent hover:shadow-xl transition-all"
+                      className="h-64 cursor-pointer group flex flex-col items-center justify-center p-8 rounded-[2.5rem] bg-background border-2 border-border hover:border-transparent hover:shadow-xl transition-all"
                     >
                       <div className={`h-20 w-20 rounded-full ${color} flex items-center justify-center text-4xl shadow-inner mb-4 group-hover:-translate-y-2 transition-transform`}>
-                        {icon}
+                        {isStockingImage ? (
+                          <img src="/images/86c2d1952da6364dd0a079b988f82c6b63cd0ebf2aa01b98a832506bdb6479e3.png" alt="" className="h-16 w-16 rounded-full object-cover object-[center_70%]" />
+                        ) : isCreamBowImage ? (
+                          <img src="/images/1f3c64870f8c96079086acadeeedcfc3444df418213f2d8ca1c5cf59ffc89ae8.png" alt="" className="h-16 w-16 rounded-full object-cover object-center" />
+                        ) : icon}
                       </div>
                       <h3 className="font-display font-bold text-xl text-center">{name}</h3>
                     </motion.div>
@@ -139,7 +146,7 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-fr gap-8">
               {featuredProducts.map((product, i) => (
-                <ProductCard key={product.id} product={product} index={i} />
+                <ProductCard key={product.id} product={product} index={i} showCategoryBadge={false} />
               ))}
             </div>
           )}

@@ -1,5 +1,4 @@
 import { Link } from "wouter";
-import stitchLogo from "@assets/Screenshot_2026-03-08_at_10.19.25_am_1772925583025.png";
 import { useProducts } from "@/hooks/use-products";
 
 export function Footer() {
@@ -11,13 +10,12 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <img 
-                src={stitchLogo} 
-                alt="STITCH Logo" 
-                className="h-8 w-auto"
+            <Link href="/" className="flex items-center mb-4">
+              <img
+                src="/images/fe519ba2e15291847007a47adb5bac4169abae96080eb5c8c0a6e178b787d985.png"
+                alt="STITCH Logo"
+                className="h-20 w-auto object-contain"
               />
-              <span className="font-display text-2xl font-bold rainbow-text whitespace-nowrap">STITCH</span>
             </Link>
             <p className="text-muted-foreground max-w-sm">
               Bringing joy through colourful, craft-inspired handmade items. Every piece is made with love, care, and a sprinkle of magic.

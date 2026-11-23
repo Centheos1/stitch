@@ -141,6 +141,8 @@ docker build --platform linux/amd64 -t stitch-api:local .
 
 ## Images
 
+Storefront images, including logos and the favicon, live in the same private S3 bucket as product photos. To replace a storefront image, upload it under `images/` with a new filename and update its `/images/<filename>` reference in the site. CloudFront serves these URLs in production, and the local development server proxies them to CloudFront.
+
 Admin uploads use presigned S3 URLs:
 
 1. The admin page calls `POST /api/upload-url` with the file type.

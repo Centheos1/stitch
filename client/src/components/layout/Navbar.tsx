@@ -4,7 +4,7 @@ import { ShoppingBag, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ShopPriceFilters } from "@/components/ShopPriceFilters";
-import stitchLogo from "@assets/Screenshot_2026-03-08_at_10.19.25_am_1772925583025.png";
+import { StitchWordmark } from "@/components/layout/StitchWordmark";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -45,12 +45,12 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center gap-3 group">
-              <img 
-                src={stitchLogo} 
+              <img
+                src="/images/a7743f4f390fa640fca3080b6c24866bd29d883428d06bd008b09edd6ee26a20.png"
                 alt="STITCH Logo" 
-                className="h-12 w-12 object-cover object-left group-hover:scale-110 transition-transform rounded-xl"
+                className="h-16 w-auto object-contain transition-transform group-hover:scale-105"
               />
-              <span className="font-display text-2xl font-bold rainbow-text whitespace-nowrap">STITCH</span>
+              <StitchWordmark className="font-display text-2xl font-bold whitespace-nowrap" />
             </Link>
           </div>
 
@@ -107,8 +107,8 @@ export function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className={`text-lg font-semibold p-2 rounded-xl transition-colors ${
                   location === link.href
-                    ? "bg-[#A8E3BC] text-[#14532D]"
-                    : "text-foreground hover:bg-[#A8E3BC] hover:text-[#14532D]"
+                    ? "bg-[#36B960] text-[#14532D]"
+                    : "text-foreground hover:bg-[#36B960] hover:text-[#14532D]"
                 }`}
               >
                 {link.label}

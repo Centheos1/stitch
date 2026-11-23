@@ -7,6 +7,16 @@ dist
 !.env.example
 .DS_Store
 server/public
+server/uploads/
+/stitch-*.png
+/client/public/**/*.png
+/client/public/**/*.jpg
+/client/public/**/*.jpeg
+/client/public/**/*.webp
+/client/public/**/*.gif
+/client/public/**/*.ico
+/client/public/**/*.avif
+/client/public/**/*.svg
 vite.config.ts.*
 *.tar.gz
 

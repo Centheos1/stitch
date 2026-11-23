@@ -301,7 +301,7 @@ export default function ProductDetail() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-16 w-16 rounded-2xl border-2 border-border text-muted-foreground hover:text-red-500 hover:border-red-500 hover:bg-red-50 transition-colors"
+                    className="h-16 w-16 rounded-2xl border-2 border-border text-muted-foreground hover:text-[#D11C30] hover:border-[#D11C30] hover:bg-[#D11C30]/10 transition-colors"
                   >
                     <Heart className="h-6 w-6" />
                   </Button>
@@ -309,7 +309,7 @@ export default function ProductDetail() {
               </div>
 
               <p className={`mb-4 text-sm font-semibold ${
-                product.stockAvailable === "Out of stock" ? "text-red-700" :
+                product.stockAvailable === "Out of stock" ? "text-[#D11C30]" :
                 product.stockAvailable === "Low stock" ? "text-amber-700" :
                 product.stockAvailable === "Made to order" ? "text-blue-700" : "text-green-700"
               }`}>

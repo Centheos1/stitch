@@ -1,11 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Rubik:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-display: 'Fredoka', sans-serif;
+  --font-display: 'Rubik', sans-serif;
   --font-body: 'Quicksand', sans-serif;
 
   /* Cream / Off-white background */
@@ -13,7 +13,7 @@
   --foreground: 222 47% 15%;
 
   /* Soft playful rainbow palette for primary components */
-  --primary: 356 100% 71%; /* #FF6B6B Soft Red */
+  --primary: 353.4 76.4% 46.5%; /* #D11C30 */
   --primary-foreground: 0 0% 100%;
   
   --secondary: 24 100% 71%; /* #FFA06A Soft Orange */
@@ -25,7 +25,7 @@
   --accent: 128 47% 60%; /* #6BCB77 Soft Green */
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 353.4 76.4% 46.5%;
   --destructive-foreground: 0 0% 100%;
 
   --card: 0 0% 100%;
@@ -38,7 +38,7 @@
 
   --border: 44 20% 85%;
   --input: 44 20% 85%;
-  --ring: 356 100% 71%;
+  --ring: 353.4 76.4% 46.5%;
 
   --radius: 1.5rem; /* Extra rounded for a playful feel */
 }
@@ -59,7 +59,7 @@
 
 @layer utilities {
   .rainbow-text {
-    background: linear-gradient(to right, #FF6B6B, #FFA06A, #FFD93D, #6BCB77, #4D96FF, #9B59B6);
+    background: linear-gradient(to right, #D11C30, #FFA06A, #FFD93D, #6BCB77, #4D96FF, #9B59B6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -74,7 +74,7 @@
     position: absolute;
     inset: -3px;
     border-radius: inherit;
-    background: linear-gradient(to right, #FF6B6B, #FFA06A, #FFD93D, #6BCB77, #4D96FF, #9B59B6);
+    background: linear-gradient(to right, #D11C30, #FFA06A, #FFD93D, #6BCB77, #4D96FF, #9B59B6);
     z-index: -1;
   }
 

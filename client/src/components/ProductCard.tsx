@@ -26,7 +26,7 @@ export function ProductCard({ product, index = 0, showCategoryBadge = true }: { 
     switch(category.toLowerCase()) {
       case 'animals': return { badge: 'bg-orange-100 text-orange-700 border-orange-200', hoverText: 'group-hover:text-orange-700' };
       case 'bags': return { badge: 'bg-blue-100 text-blue-700 border-blue-200', hoverText: 'group-hover:text-blue-700' };
-      case 'hair clips': return { badge: 'bg-pink-100 text-pink-700 border-pink-200', hoverText: 'group-hover:text-pink-700' };
+      case 'hair clips': return { badge: 'bg-[#2D9950]/10 text-[#2D9950] border-[#2D9950]/30', hoverText: 'group-hover:text-[#2D9950]' };
       case 'accessories': return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverText: 'group-hover:text-purple-800' };
       case 'christmas decorations': return { badge: 'bg-green-100 text-green-700 border-green-200', hoverText: 'group-hover:text-green-700' };
       default: return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverText: 'group-hover:text-purple-700' };
@@ -76,7 +76,7 @@ export function ProductCard({ product, index = 0, showCategoryBadge = true }: { 
             </p>
 
             <p className={`mb-3 text-sm font-semibold ${
-              product.stockAvailable === "Out of stock" ? "text-red-700" :
+              product.stockAvailable === "Out of stock" ? "text-[#D11C30]" :
               product.stockAvailable === "Low stock" ? "text-amber-700" :
               product.stockAvailable === "Made to order" ? "text-blue-700" : "text-green-700"
             }`}>

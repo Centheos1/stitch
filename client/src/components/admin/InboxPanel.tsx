@@ -254,8 +254,8 @@ export function InboxPanel() {
     <div className="space-y-6">
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant={box === "inbox" ? "default" : "outline"} className="rounded-xl" onClick={() => { setBox("inbox"); setBundle(null); setSelectedId(null); load("inbox").catch((err) => setError(errorText(err))); }}>Inbox</Button>
-        <Button type="button" variant={box === "archive" ? "default" : "outline"} className="rounded-xl" onClick={() => { setBox("archive"); setBundle(null); setSelectedId(null); load("archive").catch((err) => setError(errorText(err))); }}>Archive</Button>
+        <Button type="button" variant={box === "inbox" ? "default" : "outline"} className={`rounded-xl ${box === "inbox" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => { setBox("inbox"); setBundle(null); setSelectedId(null); load("inbox").catch((err) => setError(errorText(err))); }}>Inbox</Button>
+        <Button type="button" variant={box === "archive" ? "default" : "outline"} className={`rounded-xl ${box === "archive" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => { setBox("archive"); setBundle(null); setSelectedId(null); load("archive").catch((err) => setError(errorText(err))); }}>Archive</Button>
         <Button type="button" variant="outline" className="rounded-xl" onClick={() => { setComposing(true); setBundle(null); setSelectedId(null); resetComposer(); }}>Compose</Button>
       </div>
 

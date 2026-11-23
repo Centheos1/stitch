@@ -2,6 +2,7 @@
 .github
 .aws
 .vscode
+.local-data
 node_modules
 dist
 infra/node_modules

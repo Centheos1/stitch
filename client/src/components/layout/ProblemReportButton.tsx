@@ -9,7 +9,7 @@ export function ProblemReportButton() {
   return (
     <Button
       asChild
-      className="group fixed bottom-5 right-5 z-40 h-12 w-12 justify-center overflow-hidden rounded-full px-0 shadow-lg transition-[width,padding] duration-300 hover:w-[13.75rem] hover:justify-start hover:px-5 focus-visible:w-[13.75rem] focus-visible:justify-start focus-visible:px-5"
+      className="group fixed bottom-5 right-5 z-40 h-12 w-12 justify-center overflow-hidden rounded-full border-[#D11C30] bg-[#D11C30] px-0 shadow-lg transition-[width,padding] duration-300 hover:border-[#D11C30] hover:bg-[#D11C30] hover:w-[13.75rem] hover:justify-start hover:px-5 focus-visible:border-[#D11C30] focus-visible:bg-[#D11C30] focus-visible:w-[13.75rem] focus-visible:justify-start focus-visible:px-5"
     >
       <a href={`mailto:${email}?subject=${subject}&body=${body}`} aria-label="Report a problem with this website">
         <MessageSquare className="h-4 w-4 shrink-0" aria-hidden="true" />

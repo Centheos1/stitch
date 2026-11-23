@@ -21,7 +21,7 @@ export function ShopPriceFilters({ className = "", idPrefix = "shop-price" }: { 
               pattern="[0-9]*"
               placeholder="0"
               aria-label="Minimum price in dollars"
-              className="rounded-xl bg-background border-border focus-visible:ring-[#A8E3BC]"
+              className="rounded-xl bg-background border-border focus-visible:ring-[#36B960]"
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ""))}
             />
@@ -43,7 +43,7 @@ export function ShopPriceFilters({ className = "", idPrefix = "shop-price" }: { 
               pattern="[0-9]*"
               placeholder="No limit"
               aria-label="Maximum price in dollars"
-              className="rounded-xl bg-background border-border focus-visible:ring-[#A8E3BC]"
+              className="rounded-xl bg-background border-border focus-visible:ring-[#36B960]"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
             />

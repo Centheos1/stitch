@@ -1209,7 +1209,7 @@ function AdminPortal() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                  {productSaveError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{productSaveError}</p>}
+                  {productSaveError && <p role="alert" className="rounded-xl border border-[#D11C30]/25 bg-[#D11C30]/10 p-3 text-sm text-[#D11C30]">{productSaveError}</p>}
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -1369,7 +1369,7 @@ function AdminPortal() {
               onChange={(event) => setNoteDraft(event.target.value)}
               placeholder={noteKind === "todo" ? "Write a task…" : "Write a note…"}
               rows={3}
-              className="rounded-xl resize-y"
+              className="rounded-xl resize-y focus-visible:border-[#2D9950] focus-visible:ring-[#2D9950]"
               aria-label={noteKind === "todo" ? "To-do text" : "Note text"}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -1390,7 +1390,7 @@ function AdminPortal() {
               </select>
               <div className="flex gap-2">
                 {editingNoteId && <Button type="button" variant="outline" className="rounded-xl" onClick={cancelNoteEdit}>Cancel</Button>}
-                <Button type="submit" className="rounded-xl" disabled={!noteDraft.trim()}>{editingNoteId ? "Save changes" : "Add"}</Button>
+                <Button type="submit" className="rounded-xl border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" disabled={!noteDraft.trim()}>{editingNoteId ? "Save changes" : "Add"}</Button>
               </div>
             </div>
           </form>
@@ -1430,9 +1430,9 @@ function AdminPortal() {
       </Dialog>
 
       <div className="flex gap-2 mb-6">
-        <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("inventory")}>Inventory</Button>
-        <Button type="button" variant={tab === "orders" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("orders")}>Orders</Button>
-        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className="rounded-xl" onClick={() => setTab("inbox")}>Inbox</Button>
+        <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className={`rounded-xl ${tab === "inventory" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inventory")}>Inventory</Button>
+        <Button type="button" variant={tab === "orders" ? "default" : "outline"} className={`rounded-xl ${tab === "orders" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("orders")}>Orders</Button>
+        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className={`rounded-xl ${tab === "inbox" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inbox")}>Inbox</Button>
       </div>
 
       {tab === "orders" ? <OrdersPanel /> : tab === "inbox" ? <InboxPanel /> : (
