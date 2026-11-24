@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
-import { INBOX_FROM_ADDRESSES, type MailThread, type Order, type OrderMessage } from "@shared/schema";
+import { INBOX_FROM_ADDRESSES, PROBLEM_REPORT_SUBJECT, type MailThread, type Order, type OrderMessage } from "@shared/schema";
 import { AttachmentList, MailBody } from "@/components/admin/MailBody";
 import { Loader2 } from "lucide-react";
 
@@ -178,7 +178,8 @@ export function InboxPanel() {
       return;
     }
     const recipient = latest?.direction === "in" ? latest.from : latest?.to || "";
-    setTo(latest?.kind === "contact" ? recipient : keep(recipient).join(", "));
+    const fromWebsite = latest?.kind === "contact" || latest?.kind === "problem_report";
+    setTo(fromWebsite ? recipient : keep(recipient).join(", "));
     setCc(nextMode === "replyAll" ? [...keep(latest?.to || ""), ...keep(latest?.cc || "")].join(", ") : "");
     setBcc("");
   };
@@ -277,6 +278,9 @@ export function InboxPanel() {
           <div className="mt-6 space-y-3">
             {bundle.messages.map((message) => (
               <article key={message.id} className={`rounded-2xl border p-4 ${message.direction === "in" ? "bg-muted/40" : "bg-white"}`}>
+                {message.kind === "problem_report" && (
+                  <h3 className="mb-2 font-semibold text-[#D11C30]">From Report a Problem</h3>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {message.from} → {message.to}
                   {message.cc ? ` · cc ${message.cc}` : ""}
@@ -317,7 +321,7 @@ export function InboxPanel() {
                 <button key={thread.threadId} type="button" onClick={() => openThread(thread.threadId).catch((err) => setError(errorText(err)))} className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-muted/30">
                   <span>
                     <span className="font-semibold">{thread.correspondent || "(no sender)"}</span>
-                    <span className="block text-sm">{thread.subject}</span>
+                    <span className={`block text-sm ${thread.subject === PROBLEM_REPORT_SUBJECT ? "font-bold text-[#D11C30]" : ""}`}>{thread.subject}</span>
                     <span className="block text-sm text-muted-foreground">{thread.snippet}</span>
                   </span>
                   <span className="text-sm text-muted-foreground">

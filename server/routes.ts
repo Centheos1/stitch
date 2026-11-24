@@ -37,6 +37,22 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.contact.report.path, async (req, res) => {
+    const input = api.contact.report.input.safeParse(req.body);
+    if (!input.success) {
+      return res.status(400).json({ message: "Enter a valid email address and a report of up to 10,000 characters." });
+    }
+
+    const { email, message, page } = input.data;
+    try {
+      await saveContactMessage({ email, message: `${message}\n\nPage: ${page}` }, "problem_report");
+      res.status(204).end();
+    } catch (err) {
+      logError("Save website problem report", err);
+      res.status(500).json({ message: "We couldn't send your report. Please try again." });
+    }
+  });
+
   app.get(api.products.list.path, async (req, res) => {
     try {
       const { category, search } = req.query;

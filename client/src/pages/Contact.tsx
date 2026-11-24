@@ -49,13 +49,13 @@ export default function Contact() {
             <legend className="mb-5 font-display text-2xl font-bold">Send us a message</legend>
             <div className="space-y-2">
               <Label htmlFor="contact-email">Email address</Label>
-              <Input id="contact-email" name="email" type="email" autoComplete="email" required maxLength={254} className="h-12 rounded-xl" />
+              <Input id="contact-email" name="email" type="email" autoComplete="email" required maxLength={254} className="h-12 rounded-xl focus-visible:ring-[#36B960]" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact-message">Message</Label>
-              <Textarea id="contact-message" name="message" rows={7} required maxLength={10000} className="rounded-xl" />
+              <Textarea id="contact-message" name="message" rows={7} required maxLength={10000} className="rounded-xl focus-visible:ring-[#36B960]" />
             </div>
-            <Button type="submit" size="lg" className="w-full rounded-xl sm:w-auto">
+            <Button type="submit" size="lg" className="w-full rounded-xl border-[#36B960] bg-[#36B960] text-foreground focus-visible:ring-[#36B960] sm:w-auto">
               {send.isPending ? "Sending…" : "Send message"}
             </Button>
           </fieldset>
@@ -63,7 +63,7 @@ export default function Contact() {
             <p role="status" className="mt-5 text-sm text-green-800">Thanks for reaching out! We'll reply by email.</p>
           )}
           {send.isError && (
-            <p role="alert" className="mt-5 text-sm text-red-700">{send.error.message}</p>
+            <p role="alert" className="mt-5 border-l-2 border-[#36B960] pl-3 text-sm text-foreground">{send.error.message}</p>
           )}
         </form>
       </div>

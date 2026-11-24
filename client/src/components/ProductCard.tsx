@@ -1,14 +1,13 @@
+import { StockLabel } from "@/components/StockLabel";
 import { Link } from "wouter";
-import { getStockLabel, type Product } from "@shared/schema";
+import { type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/use-cart";
 import { ShoppingBag } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 
 export function ProductCard({ product, index = 0, showCategoryBadge = true }: { product: Product, index?: number, showCategoryBadge?: boolean }) {
   const addItem = useCart(state => state.addItem);
-  const { toast } = useToast();
 
   const primaryImage = product.imageUrls?.[0] ?? "";
 
@@ -16,10 +15,6 @@ export function ProductCard({ product, index = 0, showCategoryBadge = true }: { 
     if ((product.options ?? []).length > 0) return;
     e.preventDefault();
     addItem(product);
-    toast({
-      title: `${product.name} has been added to your cart.`,
-      className: "bg-white border-2 border-primary/20 rounded-2xl shadow-xl",
-    });
   };
 
   const getCategoryStyles = (category: string) => {
@@ -27,8 +22,8 @@ export function ProductCard({ product, index = 0, showCategoryBadge = true }: { 
       case 'animals': return { badge: 'bg-orange-100 text-orange-700 border-orange-200', hoverText: 'group-hover:text-orange-700' };
       case 'bags': return { badge: 'bg-blue-100 text-blue-700 border-blue-200', hoverText: 'group-hover:text-blue-700' };
       case 'hair clips': return { badge: 'bg-[#2D9950]/10 text-[#2D9950] border-[#2D9950]/30', hoverText: 'group-hover:text-[#2D9950]' };
-      case 'accessories': return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverText: 'group-hover:text-purple-800' };
-      case 'christmas decorations': return { badge: 'bg-green-100 text-green-700 border-green-200', hoverText: 'group-hover:text-green-700' };
+      case 'accessories': return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverText: 'group-hover:text-[#7E25B9]' };
+      case 'christmas decorations': return { badge: 'bg-green-100 text-green-700 border-green-200', hoverText: 'group-hover:text-[#36B960]' };
       default: return { badge: 'bg-purple-100 text-purple-700 border-purple-200', hoverText: 'group-hover:text-purple-700' };
     }
   };
@@ -71,16 +66,12 @@ export function ProductCard({ product, index = 0, showCategoryBadge = true }: { 
             <h3 className={`min-h-[3.5rem] font-display text-xl font-bold mb-1 break-words ${categoryStyles.hoverText} transition-colors`}>
               {product.name}
             </h3>
-            <p className="min-h-[2.5rem] text-muted-foreground text-sm line-clamp-2 mb-4 flex-1">
-              {product.description}
-            </p>
+            <div className="min-h-[2.5rem] mb-4 flex-1">
+              {product.description && <p className="text-muted-foreground text-sm line-clamp-2">{product.description}</p>}
+            </div>
 
-            <p className={`mb-3 text-sm font-semibold ${
-              product.stockAvailable === "Out of stock" ? "text-[#D11C30]" :
-              product.stockAvailable === "Low stock" ? "text-amber-700" :
-              product.stockAvailable === "Made to order" ? "text-blue-700" : "text-green-700"
-            }`}>
-              {getStockLabel(product)}
+            <p className="mb-3 text-sm font-semibold">
+              <StockLabel product={product} />
             </p>
 
             <div className="flex items-center justify-between mt-auto">

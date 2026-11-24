@@ -1,12 +1,13 @@
+import { StockLabel } from "@/components/StockLabel";
 import { useRoute } from "wouter";
 import { useProduct } from "@/hooks/use-products";
 import { unitPrice, useCart } from "@/hooks/use-cart";
-import { getStockLabel, type SelectedOption } from "@shared/schema";
+import { type SelectedOption } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Minus, Plus, ShoppingCart, Heart, ArrowLeft, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Minus, Plus, ShoppingCart, ArrowLeft, ZoomIn, ZoomOut, X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
-import { useToast } from "@/hooks/use-toast";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id");
@@ -14,7 +15,6 @@ export default function ProductDetail() {
 
   const { data: product, isLoading, error } = useProduct(id);
   const addItem = useCart((state) => state.addItem);
-  const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -155,10 +155,6 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     if (!product) return;
     addItem(product, quantity, chosen);
-    toast({
-      title: `${product.name} has been added to your cart.`,
-      className: "bg-white border-2 border-primary/20 rounded-2xl shadow-xl",
-    });
   };
 
   return (
@@ -240,16 +236,38 @@ export default function ProductDetail() {
                 ${(price / 100).toFixed(2)}
               </div>
 
-              <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
-                {product.description}
-              </p>
-              {product.madeFrom?.trim() && (
-                <p className="text-muted-foreground mb-10 mt-6 border-t border-border pt-6 leading-relaxed whitespace-pre-line">
-                  <span className="font-semibold text-foreground">Made from: </span>{product.madeFrom}
+              {product.description && (
+                <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                  {product.description}
                 </p>
               )}
+              {(product.madeFrom?.trim() || product.measurements || product.timeToMake) && (
+                <Collapsible key={product.id} className="mb-6 border-t border-border pt-6">
+                  <CollapsibleTrigger asChild>
+                    <Button type="button" variant="outline" className="group rounded-xl">
+                      Product information
+                      <ChevronDown aria-hidden="true" className="group-data-[state=open]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 pt-4 leading-relaxed text-muted-foreground">
+                    {product.madeFrom?.trim() && (
+                      <p className="whitespace-pre-line">
+                        <span className="font-semibold text-foreground">Made from: </span>{product.madeFrom}
+                      </p>
+                    )}
+                    {product.measurements && (
+                      <p className="whitespace-pre-line">
+                        <span className="font-semibold text-foreground">Approximate measurements: </span>{product.measurements}
+                      </p>
+                    )}
+                    {product.timeToMake && (
+                      <p><span className="font-semibold text-foreground">Time to make: </span>{product.timeToMake}</p>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
 
-              <div className="bg-background rounded-3xl p-6 border border-border/50 mb-10">
+              <div className="mx-auto mb-10 w-full rounded-3xl border border-border/50 bg-background p-6 sm:w-[calc(100%_-_1in)]">
                 {(product.options ?? []).map((option) => (
                   <div key={option.name} className="mb-6">
                     <div className="font-bold text-foreground mb-2">{option.name}</div>
@@ -292,31 +310,18 @@ export default function ProductDetail() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Button
-                    onClick={handleAddToCart}
-                    size="lg"
-                    disabled={product.stockAvailable === "Out of stock"}
-                    className="flex-1 rounded-2xl h-16 text-lg font-bold shadow-lg shadow-primary/25 hover:-translate-y-1 transition-all"
-                  >
-                    <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-16 w-16 rounded-2xl border-2 border-border text-muted-foreground hover:text-[#D11C30] hover:border-[#D11C30] hover:bg-[#D11C30]/10 transition-colors"
-                  >
-                    <Heart className="h-6 w-6" />
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleAddToCart}
+                  size="lg"
+                  disabled={product.stockAvailable === "Out of stock"}
+                  className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-foreground shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
+                >
+                  <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
+                </Button>
               </div>
 
-              <p className={`mb-4 text-sm font-semibold ${
-                product.stockAvailable === "Out of stock" ? "text-[#D11C30]" :
-                product.stockAvailable === "Low stock" ? "text-amber-700" :
-                product.stockAvailable === "Made to order" ? "text-blue-700" : "text-green-700"
-              }`}>
-                {getStockLabel(product)}
+              <p className="mb-4 text-sm font-semibold">
+                <StockLabel product={product} />
               </p>
 
             </div>

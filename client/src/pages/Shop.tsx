@@ -43,9 +43,9 @@ export default function Shop() {
       <div className={`flex flex-col gap-8 ${isSearching ? "" : "lg:flex-row"}`}>
         
         {/* Sidebar Filters */}
-        <div className={`w-full space-y-8 ${isSearching ? "" : "lg:w-64 lg:flex-shrink-0"}`}>
+        <div className={`mx-auto w-full space-y-8 md:w-[calc(100%_-_2in)] ${isSearching ? "" : "lg:mx-0 lg:w-64 lg:flex-shrink-0"}`}>
           
-          <div className={`bg-white p-6 rounded-3xl border border-border shadow-sm ${isSearching ? "mx-auto md:w-[calc(100%_-_2in)]" : ""}`}>
+          <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
             <h3 className="font-display font-bold text-lg mb-4">Search</h3>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

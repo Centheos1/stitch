@@ -215,6 +215,7 @@ export class DynamoStorage implements IStorage {
     const stockQuantity = stockMode === "made_to_order" ? undefined : product.stockQuantity ?? 0;
     const created: Product = {
       ...product,
+      description: product.description ?? "",
       madeFrom: product.madeFrom ?? "",
       stockMode,
       stockQuantity,

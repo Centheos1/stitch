@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useProducts } from "@/hooks/use-products";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, Gift } from "lucide-react";
+import { ArrowRight, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 
 const CATEGORY_META: Record<string, { color: string; icon: string }> = {
@@ -39,15 +39,11 @@ export default function Home() {
               transition={{ duration: 0.6 }}
               className="max-w-2xl"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border-2 border-[#2D9950]/20 text-[#2D9950] font-bold text-sm mb-6 shadow-sm">
-                <Sparkles className="h-4 w-4" />
-                Handmade with Love
-              </div>
               <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
                 Colourful <span className="rainbow-text">Handmade</span> Treasures
               </h1>
               <p className="text-xl text-muted-foreground mb-8">
-                Discover unique, craft-inspired animals, bags, hair clips, and decorations made to bring joy to your everyday life.
+                Discover unique, handcrafted animals, bags, hair clips, and decorations made to bring joy to your everyday life.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/shop">
@@ -67,15 +63,16 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative"
+              className="relative aspect-[1600/805]"
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-secondary/20 rounded-full blur-3xl -z-10 transform translate-x-10 translate-y-10"></div>
-              {/* landing page hero colorful yarn crafts */}
-              <img 
-                src="/images/da76d455c0fbc1cd2a27d2f046814a2428073b7e53ecb5c136349dba21317122.png"
-                alt="Handmade felt nativity scene"
-                className="w-full h-auto rounded-[3rem] bg-white shadow-2xl border-4 border-white rotate-3"
-              />
+              <div className="absolute inset-[1cm] overflow-hidden rounded-[3rem] border-4 border-white bg-white shadow-2xl">
+                <img
+                  src="/images/da76d455c0fbc1cd2a27d2f046814a2428073b7e53ecb5c136349dba21317122.png"
+                  alt="Handmade felt nativity scene"
+                  className="absolute -left-[1cm] -top-[1.75cm] h-[calc(100%_+_2cm)] w-[calc(100%_+_2cm)] max-w-none object-cover"
+                />
+              </div>
               
             </motion.div>
 

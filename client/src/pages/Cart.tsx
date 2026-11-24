@@ -190,7 +190,7 @@ export default function Cart() {
             <Button 
               size="lg" 
               onClick={() => setLocation("/checkout")}
-              className="w-full rounded-2xl h-16 text-lg font-bold shadow-lg shadow-primary/25 hover:-translate-y-1 transition-all"
+              className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-foreground shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
             >
               Checkout <ArrowRight className="ml-2 h-5 w-5" />
             </Button>

@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { INBOX_FROM_ADDRESSES, type MailAttachment, type OrderMessage } from "@shared/schema";
+import { INBOX_FROM_ADDRESSES, PROBLEM_REPORT_SUBJECT, type MailAttachment, type OrderMessage } from "@shared/schema";
 import { deliver, makeMessageId, textToHtml } from "./mail";
 import { copyObject, deleteObjects, describeObject, objectKeys, putHtml, readBytes, readHtml } from "./mail-files";
 import { htmlToText, renderMailHtml, sanitizeMailHtml } from "./mail-html";
@@ -7,9 +7,12 @@ import { storage } from "./storage";
 
 export class MailInputError extends Error {}
 
-export async function saveContactMessage({ email, message }: { email: string; message: string }): Promise<void> {
+export async function saveContactMessage(
+  { email, message }: { email: string; message: string },
+  kind: "contact" | "problem_report" = "contact",
+): Promise<void> {
   const id = randomUUID();
-  const subject = "Website contact form";
+  const subject = kind === "problem_report" ? PROBLEM_REPORT_SUBJECT : "Website contact form";
   await storage.saveThreadMessage({
     threadId: id,
     subject,
@@ -18,7 +21,7 @@ export async function saveContactMessage({ email, message }: { email: string; me
     message: {
       id,
       direction: "in",
-      kind: "contact",
+      kind,
       from: email,
       to: INBOX_FROM_ADDRESSES[0],
       subject,

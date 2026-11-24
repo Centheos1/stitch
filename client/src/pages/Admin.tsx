@@ -19,8 +19,10 @@ const isValidImageSrc = (val: string) =>
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().min(1, "Description is required"),
+  description: z.string().trim(),
   madeFrom: z.string(),
+  measurements: z.string().trim().max(200),
+  timeToMake: z.string().trim().max(100),
   priceStr: z.string().regex(/^\d+(\.\d{1,2})?$/, "Must be a valid price (e.g. 19.99)"),
   category: z.string().min(1, "Category is required"),
   imageUrls: z.array(z.string()).min(1, "At least one image is required"),
@@ -1062,7 +1064,7 @@ function AdminPortal() {
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      name: "", description: "", madeFrom: "", priceStr: "", category: "", imageUrls: [],
+      name: "", description: "", madeFrom: "", measurements: "", timeToMake: "", priceStr: "", category: "", imageUrls: [],
       imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
       stockMode: "tracked",
       stockQuantityStr: "0",
@@ -1073,7 +1075,7 @@ function AdminPortal() {
     setEditingId(null);
     setProductSaveError("");
     form.reset({
-      name: "", description: "", madeFrom: "", priceStr: "", category: "", imageUrls: [],
+      name: "", description: "", madeFrom: "", measurements: "", timeToMake: "", priceStr: "", category: "", imageUrls: [],
       imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
       stockMode: "tracked",
       stockQuantityStr: "0",
@@ -1089,6 +1091,8 @@ function AdminPortal() {
       name: product.name,
       description: product.description,
       madeFrom: product.madeFrom ?? "",
+      measurements: product.measurements ?? "",
+      timeToMake: product.timeToMake ?? "",
       priceStr: (product.price / 100).toFixed(2),
       category: product.category,
       imageUrls: product.imageUrls ?? [],
@@ -1128,6 +1132,8 @@ function AdminPortal() {
       name: data.name,
       description: data.description,
       madeFrom: data.madeFrom,
+      measurements: data.measurements,
+      timeToMake: data.timeToMake,
       price,
       category: data.category,
       imageUrls: data.imageUrls,
@@ -1208,7 +1214,23 @@ function AdminPortal() {
                 </DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!isPending && !imagesUploading) void form.handleSubmit(onSubmit)(event);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.defaultPrevented || event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                    const field = event.target;
+                    if (field instanceof HTMLInputElement && field.form === event.currentTarget && event.shiftKey) {
+                      event.preventDefault();
+                    }
+                    if (!(field instanceof HTMLTextAreaElement) || field.form !== event.currentTarget || event.shiftKey) return;
+                    event.preventDefault();
+                    if (!event.repeat && !isPending && !imagesUploading) event.currentTarget.requestSubmit();
+                  }}
+                  className="space-y-4 mt-4"
+                >
                   {productSaveError && <p role="alert" className="rounded-xl border border-[#D11C30]/25 bg-[#D11C30]/10 p-3 text-sm text-[#D11C30]">{productSaveError}</p>}
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Product Name</FormLabel><FormControl><Input className="rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
@@ -1272,15 +1294,28 @@ function AdminPortal() {
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="description" render={({ field }) => (
-                    <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={4} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Description (optional)</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={4} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="madeFrom" render={({ field }) => (
-                    <FormItem><FormLabel>Made from</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={3} placeholder="Materials used to make this item" {...field} onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                        event.preventDefault();
-                        event.currentTarget.form?.requestSubmit();
-                      }
-                    }} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Made from</FormLabel><FormControl><Textarea className="rounded-xl resize-y" rows={3} placeholder="Materials used to make this item" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="measurements" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Measurements</FormLabel>
+                      <FormControl>
+                        <Textarea className="min-h-9 resize-y rounded-xl" rows={1} placeholder="e.g. 12 × 8 cm" maxLength={200} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="timeToMake" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time to make</FormLabel>
+                      <FormControl>
+                        <Input className="rounded-xl" placeholder="e.g. 1–2 weeks" maxLength={100} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="stockMode" render={({ field }) => (
                     <FormItem>
@@ -1484,7 +1519,7 @@ function AdminPortal() {
                       </span>
                     </td>
                     <td className="p-4 font-bold">${(product.price / 100).toFixed(2)}</td>
-                    <td className="p-4 text-sm">{getStockLabel(product)}</td>
+                    <td className="p-4 text-sm text-black">{getStockLabel(product, { showInStockQuantity: true })}</td>
                     <td className="p-4">
                       <div className="flex gap-1">
                         {product.imageUrls?.slice(0, 3).map((url, i) => (

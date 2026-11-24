@@ -146,13 +146,13 @@ export default function Checkout() {
             <Button 
               type="submit" 
               size="lg" 
-              className="w-full h-16 rounded-2xl text-lg font-bold mt-8 shadow-lg shadow-primary/25"
+              className="w-full h-16 rounded-2xl border-green-700 bg-green-700 text-lg font-bold text-white mt-8 shadow-lg shadow-green-700/25 focus-visible:ring-green-700"
               disabled={createOrder.isPending}
             >
               {createOrder.isPending ? (
                 <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> Processing...</>
               ) : (
-                "Send request"
+                "Order"
               )}
             </Button>
           </form>

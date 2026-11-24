@@ -26,21 +26,31 @@ export function getStockStatus(stockMode?: StockMode, quantity?: number): "In st
   return available <= LOW_STOCK_THRESHOLD ? "Low stock" : "In stock";
 }
 
-export function getStockLabel(product: Pick<Product, "stockMode" | "stockQuantity" | "stockAvailable">): string {
-  const status = product.stockMode === "made_to_order" || product.stockAvailable === "Made to order"
+type ProductStock = Pick<Product, "stockMode" | "stockQuantity" | "stockAvailable">;
+
+export function getProductStockStatus(product: ProductStock) {
+  return product.stockMode === "made_to_order" || product.stockAvailable === "Made to order"
     ? "Made to order"
     : getStockStatus("tracked", product.stockQuantity);
-  if (status === "Made to order" || status === "Out of stock") return status;
-  return status === "Low stock"
-    ? `Low stock · ${product.stockQuantity} left`
-    : `${product.stockQuantity} in stock`;
+}
+
+export function getStockLabel(
+  product: ProductStock,
+  { showInStockQuantity = false } = {},
+): string {
+  const status = getProductStockStatus(product);
+  if (status === "Low stock") return `Low stock · ${product.stockQuantity} left`;
+  if (status === "In stock" && showInStockQuantity) return `${product.stockQuantity} in stock`;
+  return status;
 }
 
 export const productSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  description: z.string().min(1),
+  description: z.string().trim().default(""),
   madeFrom: z.string().optional(), // older products may not have it
+  measurements: z.string().trim().max(200).optional(),
+  timeToMake: z.string().trim().max(100).optional(),
   price: z.number().int(), // in cents
   category: z.string().min(1),
   imageUrls: z.array(z.string()),
@@ -119,12 +129,15 @@ export const mailThreadSchema = z.object({
   archived: z.boolean(),
 });
 
+export const PROBLEM_REPORT_SUBJECT = "Website problem report";
+
 export const INBOX_FROM_ADDRESSES = [
   "info@stitchhandmade.shop",
   "audrey@stitchhandmade.shop",
 ] as const;
 
-export const insertProductSchema = productSchema.omit({ id: true, createdAt: true, shopVisible: true }).extend({
+export const insertProductSchema = productSchema.omit({ id: true, createdAt: true, shopVisible: true, description: true }).extend({
+  description: z.string().trim().optional(),
   // Keep this field optional on updates so editing a hidden product doesn't republish it.
   shopVisible: z.boolean().optional(),
 });
