@@ -1,21 +1,19 @@
 import { useProducts } from "@/hooks/use-products";
 import { ProductCard } from "@/components/ProductCard";
-import { useLocation } from "wouter";
-import { useState, useEffect } from "react";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Link, useLocation, useSearch } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useShopFilters } from "@/contexts/ShopFiltersContext";
 
 export default function Shop() {
-  const [searchParams] = useState(new URLSearchParams(window.location.search));
-  const urlCategory = searchParams.get("category");
-
-  const [activeCategory, setActiveCategory] = useState(urlCategory || "All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [, navigate] = useLocation();
+  const searchParams = new URLSearchParams(useSearch());
+  const activeCategory = searchParams.get("category") || "All";
   const { minPrice, maxPrice, setMinPrice, setMaxPrice } = useShopFilters();
-  const normalizedSearch = searchQuery.trim();
+  const normalizedSearch = (searchParams.get("search") ?? "").trim();
   const isSearching = normalizedSearch.length > 0;
+  const isCategoryItemsView = activeCategory !== "All" && searchParams.get("view") === "items";
+  const showCategories = !isSearching && !isCategoryItemsView;
 
   const { data: allProducts } = useProducts();
   const { data: products, isLoading } = useProducts(
@@ -31,8 +29,32 @@ export default function Shop() {
     (maxPriceInCents === undefined || product.price <= maxPriceInCents)
   );
 
+  function clearSearch(resetCategory = false) {
+    const params = new URLSearchParams(searchParams);
+    params.delete("search");
+    if (resetCategory) {
+      params.delete("category");
+      params.delete("view");
+    }
+    const nextSearch = params.toString();
+    navigate(nextSearch ? `/shop?${nextSearch}` : "/shop", { replace: true });
+  }
+
+  function selectCategory(category: string) {
+    const params = new URLSearchParams(searchParams);
+    if (category === "All") params.delete("category");
+    else params.set("category", category);
+    const nextSearch = params.toString();
+    navigate(nextSearch ? `/shop?${nextSearch}` : "/shop", { replace: true });
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
+      {isCategoryItemsView && (
+        <Link href="/shop" className="inline-flex items-center text-muted-foreground hover:text-green-800 font-semibold mb-8 transition-colors">
+          <ArrowLeft className="mr-2 h-5 w-5" aria-hidden="true" /> Back to Shop
+        </Link>
+      )}
       <div className="text-center max-w-2xl mx-auto mb-16">
         <h1 className="font-display text-5xl font-bold mb-4 rainbow-text">The Shop</h1>
         <p className="text-lg text-muted-foreground">
@@ -40,67 +62,48 @@ export default function Shop() {
         </p>
       </div>
 
-      <div className={`flex flex-col gap-8 ${isSearching ? "" : "lg:flex-row"}`}>
-        
-        {/* Sidebar Filters */}
-        <div className={`mx-auto w-full space-y-8 md:w-[calc(100%_-_2in)] ${isSearching ? "" : "lg:mx-0 lg:w-64 lg:flex-shrink-0"}`}>
-          
-          <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
-            <h3 className="font-display font-bold text-lg mb-4">Search</h3>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                type="text" 
-                placeholder="Search items..." 
-                className="pl-10 rounded-xl bg-background border-border focus-visible:ring-[#36B960]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+      <div className={`flex flex-col gap-8 ${showCategories ? "lg:flex-row" : ""}`}>
+        {isSearching && (
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={() => clearSearch()}
+              className="w-24 px-1 text-sm whitespace-nowrap text-black hover:text-black hover:bg-muted rounded-xl focus-visible:ring-[#36B960]"
+            >
+              Clear Search
+            </Button>
           </div>
+        )}
+        {showCategories && (
+          <div className="mx-auto w-full rounded-3xl border border-border bg-white p-6 shadow-sm md:w-[calc(100%_-_2in)] lg:mx-0 lg:w-64 lg:shrink-0 lg:self-start">
+            <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
+            <div className="flex flex-col gap-2">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => selectCategory(cat)}
+                  className={`text-left px-4 py-3 rounded-xl transition-colors font-semibold ${
+                    activeCategory === cat
+                      ? "bg-[#36B960] text-[#14532D] shadow-md shadow-[#2D9950]/40"
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
 
-          {isSearching ? (
-            <div className="flex justify-center">
+            {activeCategory !== "All" && (
               <Button
                 variant="ghost"
-                onClick={() => setSearchQuery("")}
-                className="w-24 px-1 text-sm whitespace-nowrap text-black hover:text-black hover:bg-muted rounded-xl focus-visible:ring-[#36B960]"
+                onClick={() => selectCategory("All")}
+                className="w-full mt-4 text-black hover:text-black hover:bg-gray-100 rounded-xl"
               >
-                Clear Search
+                Clear Filters
               </Button>
-            </div>
-          ) : (
-            <div className="bg-white p-6 rounded-3xl border border-border shadow-sm">
-              <h3 className="font-display font-bold text-lg mb-4">Categories</h3>
-              <div className="flex flex-col gap-2">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`text-left px-4 py-3 rounded-xl transition-colors font-semibold ${
-                      activeCategory === cat
-                        ? "bg-[#36B960] text-[#14532D] shadow-md shadow-[#2D9950]/40"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {activeCategory !== "All" && (
-                <Button
-                  variant="ghost"
-                  onClick={() => setActiveCategory("All")}
-                  className="w-full mt-4 text-black hover:text-black hover:bg-gray-100 rounded-xl"
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
-          )}
-
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Product Grid */}
         <div className="flex-1">
@@ -133,7 +136,7 @@ export default function Shop() {
                 We couldn't find any crafts matching these filters. Try a different category, price range, or search term.
               </p>
               <Button 
-                onClick={() => { setActiveCategory("All"); setSearchQuery(""); setMinPrice(""); setMaxPrice(""); }}
+                onClick={() => { clearSearch(true); setMinPrice(""); setMaxPrice(""); }}
                 className="mt-6 rounded-xl border border-[#36B960] bg-[#36B960] text-[#14532D] hover:border-[#2D9950] hover:bg-[#2D9950] hover:text-white focus-visible:ring-[#36B960]"
               >
                 View All Items

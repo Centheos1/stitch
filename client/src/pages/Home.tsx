@@ -31,21 +31,23 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-12 pb-24 lg:pt-24 lg:pb-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 gap-12 items-center">
             
             <motion.div 
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
-              className="max-w-2xl"
+              className="max-w-2xl lg:max-w-none lg:text-center"
             >
-              <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
-                Colourful <span className="rainbow-text">Handmade</span> Treasures
+              <h1 className="font-display text-5xl md:text-6xl lg:text-6xl lg:whitespace-nowrap font-bold leading-tight mb-6">
+                <span className="block lg:inline">Colourful</span>{" "}
+                <span className="block lg:inline"><span className="rainbow-text inline-block">Handmade</span></span>{" "}
+                <span className="block lg:inline">Treasures</span>
               </h1>
-              <p className="text-xl text-muted-foreground mb-8">
-                Discover unique, handcrafted animals, bags, hair clips, and decorations made to bring joy to your everyday life.
+              <p className="text-xl text-muted-foreground mb-8 lg:text-lg lg:whitespace-nowrap">
+                Discover unique, handcrafted hair clips and decorations made to bring joy to your everyday life.
               </p>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4 lg:justify-center">
                 <Link href="/shop">
                   <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold bg-[#2D9950] hover:bg-[#2D9950] shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 transition-all">
                     Shop Now
@@ -63,9 +65,8 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative aspect-[1600/805]"
+              className="relative mx-auto aspect-[1600/805] w-full max-w-5xl"
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-secondary/20 rounded-full blur-3xl -z-10 transform translate-x-10 translate-y-10"></div>
               <div className="absolute inset-[1cm] overflow-hidden rounded-[3rem] border-4 border-white bg-white shadow-2xl">
                 <img
                   src="/images/da76d455c0fbc1cd2a27d2f046814a2428073b7e53ecb5c136349dba21317122.png"
