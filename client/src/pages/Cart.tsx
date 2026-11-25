@@ -121,7 +121,6 @@ export default function Cart() {
                   <h3 className="font-display text-xl font-bold">{item.product.name}</h3>
                   <span className="font-display font-bold text-lg">${(price / 100).toFixed(2)}</span>
                 </div>
-                <p className="text-sm text-muted-foreground mb-1">{item.product.category}</p>
                 {(item.options ?? []).length > 0 && (
                   <p className="text-sm text-muted-foreground mb-4">
                     {(item.options ?? []).map((option) => `${option.name}: ${option.choice}`).join(" · ")}
@@ -190,13 +189,13 @@ export default function Cart() {
             <Button 
               size="lg" 
               onClick={() => setLocation("/checkout")}
-              className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-foreground shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
+              className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-white shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
             >
               Checkout <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             
             <div className="mt-6 text-center">
-              <Link href="/shop" className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">
+              <Link href="/shop" className="text-sm font-semibold text-foreground hover:text-green-800 transition-colors">
                 Continue Shopping
               </Link>
             </div>

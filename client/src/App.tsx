@@ -22,6 +22,7 @@ import Checkout from "./pages/Checkout";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Admin from "./pages/Admin";
+import BreakpointPreview from "./pages/BreakpointPreview";
 
 function Router() {
   const [location] = useLocation();
@@ -53,6 +54,12 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+
+  if (import.meta.env.DEV && location === "/preview") {
+    return <BreakpointPreview />;
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

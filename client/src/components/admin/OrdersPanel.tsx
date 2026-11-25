@@ -1,4 +1,15 @@
 import { useEffect, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
@@ -123,9 +134,25 @@ export function OrdersPanel() {
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
             {STATUSES.map((status) => (
-              <Button key={status} size="sm" variant="outline" className="rounded-xl capitalize" disabled={sending} onClick={() => setStatus(status)}>
-                Mark {status}
-              </Button>
+              <AlertDialog key={status}>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="rounded-xl capitalize" disabled={sending}>
+                    Mark {status}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm status change</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to mark this order {status}?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => setStatus(status)}>Yes</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             ))}
           </div>
           <div className="mt-6 space-y-3">

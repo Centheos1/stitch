@@ -152,7 +152,7 @@ export async function registerRoutes(
       const text = [
         `Hello ${order.name},`,
         "",
-        "We have your request. This is not a payment yet. We'll reply to confirm the details.",
+        "We have your request. An invoice will be emailed to this address. Your order will not be made or shipped until payment has been made.",
         "",
         summary,
         "",

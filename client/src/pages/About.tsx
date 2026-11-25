@@ -7,7 +7,9 @@ export default function About() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3"></div>
 
-          <h1 className="font-display text-5xl font-bold mb-8 rainbow-text relative z-10 text-center">Our Story</h1>
+          <h1 className="relative z-10 mx-auto mb-8 w-fit max-w-full bg-[linear-gradient(to_right,var(--stitch-orange),var(--stitch-yellow),var(--stitch-green),var(--stitch-blue))] bg-clip-text text-center font-display text-5xl font-bold text-transparent">
+            Our Story
+          </h1>
 
           <div className="prose prose-lg mx-auto text-muted-foreground relative z-10">
 

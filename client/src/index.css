@@ -8,6 +8,13 @@
   --font-display: 'Rubik', sans-serif;
   --font-body: 'Quicksand', sans-serif;
 
+  --stitch-red: #D11C30;
+  --stitch-orange: #E48945;
+  --stitch-yellow: #F8BB1C;
+  --stitch-green: #36B960;
+  --stitch-blue: #5385CE;
+  --stitch-purple: #7E25B9;
+
   /* Cream / Off-white background */
   --background: 44 100% 97%; /* #FFFBF0 */
   --foreground: 222 47% 15%;
@@ -56,13 +63,6 @@
 }
 
 @layer utilities {
-  .rainbow-text {
-    background: linear-gradient(to right, #D11C30, #FFA06A, #FFD93D, #6BCB77, #4D96FF, #9B59B6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  
   .rainbow-border {
     position: relative;
   }

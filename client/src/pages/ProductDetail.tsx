@@ -314,7 +314,7 @@ export default function ProductDetail() {
                   onClick={handleAddToCart}
                   size="lg"
                   disabled={product.stockAvailable === "Out of stock"}
-                  className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-foreground shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
+                  className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-white shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
                 </Button>

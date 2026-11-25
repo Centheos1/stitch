@@ -56,7 +56,7 @@ export default function Shop() {
         </Link>
       )}
       <div className="text-center max-w-2xl mx-auto mb-16">
-        <h1 className="font-display text-5xl font-bold mb-4 rainbow-text">The Shop</h1>
+        <h1 className="font-display text-5xl font-bold mb-4 text-black">The Shop</h1>
         <p className="text-lg text-muted-foreground">
           Browse our entire collection of lovingly crafted handmade items. Pick your favourites and bring some colour home!
         </p>

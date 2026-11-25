@@ -15,6 +15,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchToggleRef = useRef<HTMLButtonElement>(null);
+  const searchPanelRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -42,6 +43,28 @@ export function Navbar() {
     document.addEventListener("pointerdown", closeWhenClickingOutside);
     return () => document.removeEventListener("pointerdown", closeWhenClickingOutside);
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+
+    const closeSearchOnOutsideClick = (event: MouseEvent) => {
+      if (
+        event.target instanceof Node &&
+        !searchPanelRef.current?.contains(event.target) &&
+        !searchToggleRef.current?.contains(event.target)
+      ) {
+        setSearchOpen(false);
+      }
+    };
+
+    document.addEventListener("click", closeSearchOnOutsideClick, true);
+    return () => document.removeEventListener("click", closeSearchOnOutsideClick, true);
+  }, [searchOpen]);
+
+  function closeSearch() {
+    setSearchOpen(false);
+    searchToggleRef.current?.focus();
+  }
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -129,8 +152,22 @@ export function Navbar() {
 
       {searchOpen && (
         <div id="header-search" role="search" className="mx-auto max-w-7xl px-4 pb-4 sm:px-6 lg:px-8">
-          <div className="mx-auto rounded-3xl border border-border bg-white p-4 shadow-sm md:w-[calc(100%_-_2in)]">
-            <label htmlFor="header-search-input" className="mb-3 block font-display text-lg font-bold">Search</label>
+          <div
+            ref={searchPanelRef}
+            className="mx-auto rounded-3xl border border-border bg-white p-4 shadow-sm md:w-[calc(100%_-_2in)]"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeSearch();
+              }
+            }}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label htmlFor="header-search-input" className="font-display text-lg font-bold">Search</label>
+              <Button type="button" variant="ghost" size="icon" aria-label="Close search" onClick={closeSearch}>
+                <X className="h-5 w-5" aria-hidden="true" />
+              </Button>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
@@ -141,13 +178,6 @@ export function Navbar() {
                 className="rounded-xl border-border bg-background pl-10 focus-visible:ring-[#36B960]"
                 value={searchQuery}
                 onChange={(event) => updateSearch(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    setSearchOpen(false);
-                    searchToggleRef.current?.focus();
-                  }
-                }}
               />
             </div>
           </div>

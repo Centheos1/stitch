@@ -41,7 +41,7 @@ export default function Home() {
             >
               <h1 className="font-display text-5xl md:text-6xl lg:text-6xl lg:whitespace-nowrap font-bold leading-tight mb-6">
                 <span className="block lg:inline">Colourful</span>{" "}
-                <span className="block lg:inline"><span className="rainbow-text inline-block">Handmade</span></span>{" "}
+                <span className="block lg:inline"><span className="inline-block bg-[linear-gradient(to_right,var(--stitch-red),var(--stitch-orange),var(--stitch-yellow),var(--stitch-green),var(--stitch-blue),var(--stitch-purple))] bg-clip-text text-transparent">Handmade</span></span>{" "}
                 <span className="block lg:inline">Treasures</span>
               </h1>
               <p className="text-xl text-muted-foreground mb-8 lg:text-lg lg:whitespace-nowrap">
@@ -49,7 +49,7 @@ export default function Home() {
               </p>
               <div className="flex flex-wrap gap-4 lg:justify-center">
                 <Link href="/shop">
-                  <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold bg-[#2D9950] hover:bg-[#2D9950] shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 transition-all">
+                  <Button size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold bg-[#2D9950] text-white hover:bg-[#2D9950] shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 transition-all">
                     Shop Now
                   </Button>
                 </Link>
@@ -65,14 +65,24 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative mx-auto aspect-[1600/805] w-full max-w-5xl"
+              className="relative mx-auto aspect-[2/3] w-full max-w-xs sm:aspect-[1600/805] sm:max-w-5xl"
             >
-              <div className="absolute inset-[1cm] overflow-hidden rounded-[3rem] border-4 border-white bg-white shadow-2xl">
-                <img
-                  src="/images/da76d455c0fbc1cd2a27d2f046814a2428073b7e53ecb5c136349dba21317122.png"
-                  alt="Handmade felt nativity scene"
-                  className="absolute -left-[1cm] -top-[1.75cm] h-[calc(100%_+_2cm)] w-[calc(100%_+_2cm)] max-w-none object-cover"
-                />
+              <div className="absolute inset-0 overflow-hidden rounded-[3rem] border-4 border-white bg-white shadow-2xl sm:inset-[1cm]">
+                <picture>
+                  <source
+                    media="(min-width: 640px)"
+                    srcSet="/images/e26ff6547fd099aa50add8a0e9182a78bfe3f47c7d5afa9161a6bd6e36bed78a.png"
+                    width={1768}
+                    height={890}
+                  />
+                  <img
+                    src="/images/9ef398b3e20f145653c2967e9698e55b2ee97fce7dd0cfd2555d1a75e67ed07e.png"
+                    alt="Handmade felt figures from the Nativity collection"
+                    width={1024}
+                    height={1536}
+                    className="h-full w-full object-contain sm:absolute sm:-left-[1cm] sm:-top-[1.75cm] sm:h-[calc(100%_+_2cm)] sm:w-[calc(100%_+_2cm)] sm:max-w-none sm:object-cover"
+                  />
+                </picture>
               </div>
               
             </motion.div>
@@ -123,16 +133,13 @@ export default function Home() {
       {/* Featured Products */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <h2 className="font-display text-4xl font-bold mb-2">New Arrivals</h2>
-              <p className="text-lg text-muted-foreground">The latest handmade goodies straight from the workshop.</p>
-            </div>
-            <Link href="/shop">
-              <Button variant="ghost" className="hidden sm:flex font-bold text-black hover:bg-gray-100 hover:text-black rounded-xl">
-                View All <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
+          <div className="mb-12 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-4xl font-bold">New Arrivals</h2>
+            <Button asChild variant="ghost" className="rounded-xl font-bold text-black hover:bg-gray-100 hover:text-black">
+              <Link href="/shop">
+                View All <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
 
           {isLoading ? (
@@ -148,14 +155,6 @@ export default function Home() {
               ))}
             </div>
           )}
-          
-          <div className="mt-8 text-center sm:hidden">
-            <Link href="/shop">
-              <Button variant="outline" className="font-bold text-black border-primary hover:bg-gray-100 hover:text-black rounded-xl">
-                View All <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
         </div>
       </section>
     </div>

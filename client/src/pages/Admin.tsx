@@ -993,7 +993,12 @@ function AdminPortal() {
   const [productSaveError, setProductSaveError] = useState("");
   const [tab, setTab] = useState<"inventory" | "orders" | "inbox">("inventory");
   const [notesOpen, setNotesOpen] = useState(false);
+  const [showNotesHistory, setShowNotesHistory] = useState(false);
   const [notes, setNotes] = useState<AdminNote[]>([]);
+  const orderedNotes = showNotesHistory ? notes.filter((item) => item.kind === "todo" && item.completed) : [
+    ...notes.filter((item) => item.kind === "todo" && !item.completed),
+    ...notes.filter((item) => item.kind === "note"),
+  ];
   const [notesLoaded, setNotesLoaded] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteKind, setNoteKind] = useState<AdminNote["kind"]>("note");
@@ -1024,6 +1029,25 @@ function AdminPortal() {
       // Notes remain usable for this session when browser storage is unavailable.
     }
   }, [notes, notesLoaded]);
+
+  function moveNote(id: string, direction: -1 | 1) {
+    setNotes((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      if (index === -1) return current;
+
+      const kind = current[index].kind;
+      let neighbor = index + direction;
+      while (neighbor >= 0 && neighbor < current.length &&
+        (current[neighbor].kind !== kind || current[neighbor].completed !== current[index].completed)) {
+        neighbor += direction;
+      }
+      if (neighbor < 0 || neighbor >= current.length) return current;
+
+      const reordered = [...current];
+      [reordered[index], reordered[neighbor]] = [reordered[neighbor], reordered[index]];
+      return reordered;
+    });
+  }
 
   const saveNote = () => {
     const text = noteDraft.trim();
@@ -1392,13 +1416,23 @@ function AdminPortal() {
         </div>
       </div>
 
-      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+      <Dialog open={notesOpen} onOpenChange={(open) => {
+        setNotesOpen(open);
+        if (!open) setShowNotesHistory(false);
+      }}>
         <DialogContent className="w-[min(92vw,40rem)] max-w-none rounded-3xl border-2 border-border p-5 sm:p-8 max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">Notes &amp; To-do</DialogTitle>
-            <DialogDescription>Keep notes and tasks for your shop. They are saved in this browser.</DialogDescription>
+            <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
+              <DialogTitle className="font-display text-2xl">{showNotesHistory ? "To-do history" : "Notes & To-do"}</DialogTitle>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowNotesHistory(!showNotesHistory)}>
+                {showNotesHistory ? "Back to list" : "History"}
+              </Button>
+            </div>
+            <DialogDescription>
+              {showNotesHistory ? "Uncheck a to-do to return it to the active list." : "Keep notes and tasks for your shop. They are saved in this browser."}
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={addNote} className="space-y-3">
+          {!showNotesHistory && <form onSubmit={addNote} className="space-y-3">
             <Textarea
               value={noteDraft}
               onChange={(event) => setNoteDraft(event.target.value)}
@@ -1428,11 +1462,13 @@ function AdminPortal() {
                 <Button type="submit" className="rounded-xl border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" disabled={!noteDraft.trim()}>{editingNoteId ? "Save changes" : "Add"}</Button>
               </div>
             </div>
-          </form>
+          </form>}
           <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
-            {notes.length === 0 ? (
-              <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Your notes and to-do items will appear here.</p>
-            ) : notes.map((note) => (
+            {orderedNotes.length === 0 ? (
+              <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                {showNotesHistory ? "Completed to-dos will appear here." : "Your notes and to-do items will appear here."}
+              </p>
+            ) : orderedNotes.map((note, index) => (
               <div key={note.id} className="flex items-start gap-3 rounded-xl border border-border p-3">
                 {note.kind === "todo" ? (
                   <input
@@ -1447,7 +1483,13 @@ function AdminPortal() {
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{note.kind === "todo" ? "To-do" : "Note"}</p>
                   <p className={`whitespace-pre-wrap break-words text-sm ${note.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>{note.text}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                {!showNotesHistory && <div className="grid shrink-0 grid-cols-2 gap-1 sm:grid-cols-4">
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveNote(note.id, -1)} disabled={orderedNotes[index - 1]?.kind !== note.kind} aria-label={`Move ${note.kind === "todo" ? "to-do" : "note"} up`}>
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveNote(note.id, 1)} disabled={orderedNotes[index + 1]?.kind !== note.kind} aria-label={`Move ${note.kind === "todo" ? "to-do" : "note"} down`}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => editNote(note)} aria-label={`Edit ${note.kind === "todo" ? "to-do" : "note"}`}>
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -1457,7 +1499,7 @@ function AdminPortal() {
                   }} aria-label={`Delete ${note.kind === "todo" ? "to-do" : "note"}`}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
+                </div>}
               </div>
             ))}
           </div>
@@ -1465,9 +1507,9 @@ function AdminPortal() {
       </Dialog>
 
       <div className="flex gap-2 mb-6">
-        <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className={`rounded-xl ${tab === "inventory" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inventory")}>Inventory</Button>
-        <Button type="button" variant={tab === "orders" ? "default" : "outline"} className={`rounded-xl ${tab === "orders" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("orders")}>Orders</Button>
-        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className={`rounded-xl ${tab === "inbox" ? "border-[#2D9950] bg-[#2D9950] hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inbox")}>Inbox</Button>
+        <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className={`rounded-xl ${tab === "inventory" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inventory")}>Inventory</Button>
+        <Button type="button" variant={tab === "orders" ? "default" : "outline"} className={`rounded-xl ${tab === "orders" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("orders")}>Orders</Button>
+        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className={`rounded-xl ${tab === "inbox" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inbox")}>Inbox</Button>
       </div>
 
       {tab === "orders" ? <OrdersPanel /> : tab === "inbox" ? <InboxPanel /> : (
