@@ -1,9 +1,9 @@
 import { invoiceDueHtml } from "@shared/invoice-terms";
 import { INVOICE_LOGO_HTML } from "@shared/branding";
-import { INBOX_FROM_ADDRESSES, type Order, type OrderItem } from "@shared/schema";
+import type { Order, OrderItem } from "@shared/schema";
 
 export const INVOICE_PAYMENT_PLACEHOLDER = "[Add payment details]";
-const businessEmail = INBOX_FROM_ADDRESSES[0];
+const businessEmail = "order@stitchhandmade.shop";
 const money = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" });
 const date = new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeZone: "Australia/Sydney" });
 
