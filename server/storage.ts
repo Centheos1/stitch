@@ -13,7 +13,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import {
   productSchema,
-  DEFAULT_SHIPPING_RATE_CENTS,
+  FLAT_SHIPPING_RATE_CENTS,
   shippingSettingsSchema,
   getStockStatus,
   orderSchema,
@@ -338,7 +338,7 @@ export class DynamoStorage implements IStorage {
   async getShippingSettings(): Promise<ShippingSettings> {
     const { Item } = await doc.send(new GetCommand({ TableName: tableName, Key: shippingSettingsKey, ConsistentRead: true }));
     return shippingSettingsSchema.parse({
-      rateCents: Item?.rateCents ?? DEFAULT_SHIPPING_RATE_CENTS,
+      rateCents: FLAT_SHIPPING_RATE_CENTS,
       freeDeliverySuburbs: Item?.freeDeliverySuburbs,
     });
   }
@@ -347,8 +347,8 @@ export class DynamoStorage implements IStorage {
     await doc.send(new UpdateCommand({
       TableName: tableName,
       Key: shippingSettingsKey,
-      UpdateExpression: "SET rateCents = :rate, freeDeliverySuburbs = :suburbs",
-      ExpressionAttributeValues: { ":rate": settings.rateCents, ":suburbs": settings.freeDeliverySuburbs },
+      UpdateExpression: "SET freeDeliverySuburbs = :suburbs REMOVE rateCents",
+      ExpressionAttributeValues: { ":suburbs": settings.freeDeliverySuburbs },
     }));
   }
 
@@ -405,7 +405,7 @@ export class DynamoStorage implements IStorage {
       });
     }
 
-    const { rateCents: shippingAmount } = await this.getShippingSettings();
+    const shippingAmount = FLAT_SHIPPING_RATE_CENTS;
     const totalAmount = merchandise + shippingAmount;
     if (!Number.isSafeInteger(totalAmount)) {
       throw new OrderRequestError("The order total is too large. Reduce your quantities and try again.");
@@ -416,7 +416,7 @@ export class DynamoStorage implements IStorage {
   async createOrder(input: QuoteInput & { expectedTotal: number; expectedShipping: number }): Promise<{ order: Order; items: OrderItem[] }> {
     const { lines, quote } = await this.prepareOrder(input);
     if (quote.totalAmount !== input.expectedTotal || quote.shippingAmount !== input.expectedShipping) {
-      throw new OrderRequestError("The order total changed. Please review a fresh shipping quote.", 409);
+      throw new OrderRequestError("The order total changed. Please review the updated order total.", 409);
     }
     const order: Order = {
       id: randomUUID(),

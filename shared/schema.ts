@@ -46,11 +46,11 @@ export function getStockLabel(
 
 export const australianPostcodeSchema = z.string().trim().regex(/^\d{4}$/, "Enter a four-digit Australian postcode.");
 
-export const DEFAULT_SHIPPING_RATE_CENTS = 500;
+export const FLAT_SHIPPING_RATE_CENTS = 1_000;
 export const freeDeliverySuburbsSchema = z.array(z.string().trim().min(1).max(80)).max(200)
   .transform((suburbs) => Array.from(new Map(suburbs.map((name) => [name.toLowerCase(), name])).values()));
 export const shippingSettingsSchema = z.object({
-  rateCents: z.number().int().nonnegative().safe(),
+  rateCents: z.literal(FLAT_SHIPPING_RATE_CENTS),
   freeDeliverySuburbs: freeDeliverySuburbsSchema.default([]),
 });
 

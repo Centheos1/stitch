@@ -166,8 +166,8 @@ export async function registerRoutes(
     try {
       res.json(await storage.getShippingSettings());
     } catch (error) {
-      logError("Load shipping rate", error);
-      res.status(500).json({ message: "Could not load the shipping rate." });
+      logError("Load shipping settings", error);
+      res.status(500).json({ message: "Could not load shipping settings." });
     }
   });
 
@@ -178,8 +178,8 @@ export async function registerRoutes(
       await storage.setShippingSettings(input.data);
       res.json(input.data);
     } catch (error) {
-      logError("Save shipping rate", error);
-      res.status(500).json({ message: "Could not save the shipping rate." });
+      logError("Save shipping settings", error);
+      res.status(500).json({ message: "Could not save shipping settings." });
     }
   });
 
@@ -202,8 +202,8 @@ export async function registerRoutes(
       if (error instanceof OrderRequestError) {
         return res.status(error.status).json({ message: error.message });
       }
-      logError("Quote order shipping", error);
-      res.status(500).json({ message: "Could not calculate shipping." });
+      logError("Quote order total", error);
+      res.status(500).json({ message: "Could not verify the order total." });
     }
   });
 

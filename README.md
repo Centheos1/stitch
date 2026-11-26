@@ -203,7 +203,7 @@ SES production access is already enabled in Sydney, so mail can go to customer a
 ## Known gaps
 
 - **Admin sign-in has no second factor.** The password in Secrets Manager is the only check.
-- **Checkout records orders with a flat domestic shipping rate.** Set the per-order charge in **Admin Portal → Shipping settings**. The default is $5.00.
+- **Checkout charges $10.00 AUD flat-rate domestic shipping per order.** Manage the separate free local delivery suburb list in **Admin Portal → Shipping settings**.
 - **Contact page is display only.** It has no form.
 - **The shop has no test data isolation.** Local dev and the deployed site share the same table.
 

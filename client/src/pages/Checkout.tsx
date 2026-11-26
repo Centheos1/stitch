@@ -12,7 +12,7 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
-import { australianPostcodeSchema, freeDeliverySuburbsSchema } from "@shared/schema";
+import { australianPostcodeSchema, FLAT_SHIPPING_RATE_CENTS, freeDeliverySuburbsSchema } from "@shared/schema";
 import { orderQuoteResponse, type OrderInput } from "@shared/routes";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
@@ -93,7 +93,7 @@ export default function Checkout() {
         body: JSON.stringify(input),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message ?? "Could not calculate shipping.");
+      if (!response.ok) throw new Error(result.message ?? "Could not verify the order total.");
       return orderQuoteResponse.parse(result);
     },
   });
@@ -148,7 +148,7 @@ export default function Checkout() {
     if (!rate) {
       shippingQuote.mutate(input, {
         onSuccess: (result) => setQuoted({ key, rate: result }),
-        onError: (error) => toast({ variant: "destructive", title: "Couldn’t calculate shipping", description: error.message }),
+        onError: (error) => toast({ variant: "destructive", title: "Couldn’t review your order", description: error.message }),
       });
       return;
     }
@@ -200,13 +200,13 @@ export default function Checkout() {
                 <div className="flex justify-between gap-4">
                   <dt>Shipping</dt>
                   <dd className="text-right">
-                    {rate ? formatPrice(rate.shippingAmount) : "Calculated after you select Order"}
+                    {formatPrice(FLAT_SHIPPING_RATE_CENTS)}
                     <FreeDeliverySuburbs />
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4 border-t border-border pt-3 text-lg font-bold">
                   <dt>Total</dt>
-                  <dd>{rate ? formatPrice(rate.totalAmount) : "Pending shipping"}</dd>
+                  <dd>{formatPrice(rate?.totalAmount ?? subtotal + FLAT_SHIPPING_RATE_CENTS)}</dd>
                 </div>
               </dl>
             </section>
@@ -273,12 +273,6 @@ export default function Checkout() {
                 )}
               />
 
-              {rate && (
-                <p role="status" className="text-sm text-muted-foreground">
-                  Shipping is {formatPrice(rate.shippingAmount)}. Your total is {formatPrice(rate.totalAmount)}.
-                </p>
-              )}
-
               <Button
                 type="submit"
                 size="lg"
@@ -286,8 +280,8 @@ export default function Checkout() {
                 disabled={busy}
               >
                 {busy ? (
-                  <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> {shippingQuote.isPending ? "Calculating shipping…" : "Sending request…"}</>
-                ) : rate ? "Confirm order" : "Order"}
+                  <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> {shippingQuote.isPending ? "Reviewing order…" : "Sending request…"}</>
+                ) : rate ? "Confirm order" : "Review order"}
               </Button>
             </form>
           </Form>

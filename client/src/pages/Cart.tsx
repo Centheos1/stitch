@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { FLAT_SHIPPING_RATE_CENTS } from "@shared/schema";
 
 function EditableQuantity({
   lineKey,
@@ -85,6 +86,7 @@ export default function Cart() {
   }
 
   const subtotal = getCartTotal() / 100;
+  const shipping = FLAT_SHIPPING_RATE_CENTS / 100;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
@@ -172,6 +174,14 @@ export default function Cart() {
               <div className="flex justify-between items-center">
                 <span className="font-display font-bold text-xl">Subtotal</span>
                 <span className="font-display font-bold text-3xl text-black">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="mt-3 flex justify-between gap-4">
+                <span>Flat-rate shipping</span>
+                <span>${shipping.toFixed(2)}</span>
+              </div>
+              <div className="mt-3 flex justify-between gap-4 border-t border-border pt-3 font-bold">
+                <span>Total</span>
+                <span>${(subtotal + shipping).toFixed(2)}</span>
               </div>
             </div>
             
