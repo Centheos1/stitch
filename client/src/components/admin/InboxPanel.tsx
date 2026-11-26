@@ -1,3 +1,5 @@
+import { INVOICE_PAYMENT_PLACEHOLDER, type InvoiceDraft } from "./payment-invoice";
+import { INVOICE_LOGO_HTML, STITCH_LOGO_URL, isPaymentInvoice } from "@shared/branding";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,11 +39,13 @@ function errorText(err: unknown): string {
   }
 }
 
-function Editor({ focusOnMount, onChange }: {
+function Editor({ initialHtml, focusOnMount, onChange }: {
+  initialHtml?: string;
   focusOnMount: boolean;
   onChange: (html: string, text: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const initialContent = useRef(initialHtml ? { __html: initialHtml } : undefined);
   useEffect(() => {
     if (focusOnMount) ref.current?.focus();
   }, [focusOnMount]);
@@ -50,6 +54,15 @@ function Editor({ focusOnMount, onChange }: {
     ref.current?.focus();
     document.execCommand(command, false, value);
     onChange(ref.current?.innerHTML ?? "", ref.current?.innerText ?? "");
+  };
+  const updateMessage = (addLogo = false) => {
+    const editor = ref.current;
+    if (!editor) return;
+    if ((addLogo || isPaymentInvoice(editor.innerText)) &&
+      !Array.from(editor.querySelectorAll("img")).some((image) => image.src === STITCH_LOGO_URL)) {
+      editor.insertAdjacentHTML("afterbegin", INVOICE_LOGO_HTML);
+    }
+    onChange(editor.innerHTML, editor.innerText);
   };
 
   return (
@@ -65,22 +78,24 @@ function Editor({ focusOnMount, onChange }: {
           const url = window.prompt("Link address");
           if (url) run("createLink", url);
         }}>Link</Button>
+        <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={() => updateMessage(true)}>Add STITCH logo</Button>
       </div>
       <div
         ref={ref}
+        dangerouslySetInnerHTML={initialContent.current}
         contentEditable
         role="textbox"
         aria-label="Message"
         aria-multiline="true"
         data-placeholder="Write your message…"
         className="min-h-36 break-words p-4 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6"
-        onInput={() => onChange(ref.current?.innerHTML ?? "", ref.current?.innerText ?? "")}
+        onInput={() => updateMessage()}
       />
     </div>
   );
 }
 
-export function InboxPanel() {
+export function InboxPanel({ initialInvoice }: { initialInvoice?: InvoiceDraft }) {
   const [box, setBox] = useState<Mailbox>("inbox");
   const [threads, setThreads] = useState<MailThread[]>([]);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -92,18 +107,19 @@ export function InboxPanel() {
   const threadRequest = useRef(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bundle, setBundle] = useState<ThreadBundle | null>(null);
-  const [composing, setComposing] = useState(false);
+  const [composing, setComposing] = useState(Boolean(initialInvoice));
+  const [invoice, setInvoice] = useState(initialInvoice);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [from, setFrom] = useState<string>(INBOX_FROM_ADDRESSES[0]);
-  const [to, setTo] = useState("");
+  const [to, setTo] = useState(initialInvoice?.to ?? "");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [showCopyFields, setShowCopyFields] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [subject, setSubject] = useState("");
-  const [html, setHtml] = useState("");
+  const [subject, setSubject] = useState(initialInvoice?.subject ?? "");
+  const [html, setHtml] = useState(initialInvoice?.html ?? "");
   const [text, setText] = useState("");
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [mode, setMode] = useState<"new" | "reply" | "replyAll" | "forward">("new");
@@ -147,6 +163,7 @@ export function InboxPanel() {
   }, []);
 
   const resetComposer = () => {
+    setInvoice(undefined);
     setTo("");
     setCc("");
     setBcc("");
@@ -203,6 +220,10 @@ export function InboxPanel() {
   };
 
   const send = async () => {
+    if (invoice && html.includes(INVOICE_PAYMENT_PLACEHOLDER)) {
+      setError("Add payment details to the invoice before sending.");
+      return;
+    }
     setSending(true);
     setError("");
     try {
@@ -336,7 +357,7 @@ export function InboxPanel() {
     return <div className="p-12 text-center text-muted-foreground"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div>;
   }
 
-  const composeTitle = {
+  const composeTitle = invoice ? "Review invoice" : {
     new: "New message", reply: "Reply", replyAll: "Reply all", forward: "Forward",
   }[mode];
 
@@ -367,7 +388,7 @@ export function InboxPanel() {
         <div className="flex items-end gap-2 sm:items-center">
           <label className="grid min-w-0 flex-1 items-center gap-1 text-sm font-medium sm:grid-cols-[4rem_1fr]">
             To
-            <Input value={to} autoFocus={mode === "new"} onChange={(event) => setTo(event.target.value)} />
+            <Input value={to} autoFocus={mode === "new" && !invoice} onChange={(event) => setTo(event.target.value)} />
           </label>
           <Button type="button" size="sm" variant="ghost" aria-expanded={showCopyFields}
             onClick={() => setShowCopyFields((open) => !open)}>Cc / Bcc</Button>
@@ -386,7 +407,7 @@ export function InboxPanel() {
           Subject <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
         </label>
       </div>
-      <Editor key={`${mode}-${selectedId ?? "new"}`}
+      <Editor key={invoice?.subject ?? `${mode}-${selectedId ?? "new"}`} initialHtml={invoice?.html}
         focusOnMount={mode === "reply" || mode === "replyAll"}
         onChange={(nextHtml, nextText) => { setHtml(nextHtml); setText(nextText); }} />
       <input ref={fileInput} type="file" multiple hidden onChange={(event) => {

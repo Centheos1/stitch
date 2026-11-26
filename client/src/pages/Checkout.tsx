@@ -9,13 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+
+import { australianPostcodeSchema, freeDeliverySuburbsSchema } from "@shared/schema";
+import { orderQuoteResponse, type OrderInput } from "@shared/routes";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 const checkoutSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Valid email is required"),
   address: z.string().min(10, "Full address is required"),
+  shippingPostcode: australianPostcodeSchema,
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -37,6 +42,36 @@ function CheckoutBackLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+function FreeDeliverySuburbs() {
+  const [open, setOpen] = useState(false);
+  const path = "/api/shipping/free-delivery-suburbs";
+  const suburbs = useQuery({
+    queryKey: [path],
+    enabled: open,
+    select: (names) => [...names].sort((a, b) => a.localeCompare(b, "en-AU", { sensitivity: "base" })),
+    queryFn: async () => {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error("Could not load the suburb list.");
+      return freeDeliverySuburbsSchema.parse(await response.json());
+    },
+  });
+
+  return (
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="text-sm text-muted-foreground">
+      <summary className="cursor-pointer underline underline-offset-2">Free delivery to listed suburbs.</summary>
+      {open && (
+        suburbs.isPending ? <p role="status" className="mt-2">Loading suburbs…</p>
+          : suburbs.isError ? <p role="status" className="mt-2">The suburb list is unavailable.</p>
+          : suburbs.data.length ? (
+            <ul className="mt-2 space-y-1">
+              {suburbs.data.map((name) => <li key={name}>{name}</li>)}
+            </ul>
+          ) : <p className="mt-2">No suburbs have been listed yet.</p>
+      )}
+    </details>
+  );
+}
+
 export default function Checkout() {
   const { items, getCartTotal, clearCart } = useCart();
   const createOrder = useCreateOrder();
@@ -49,13 +84,34 @@ export default function Checkout() {
   }, [isSuccess, clearCart]);
 
   const subtotal = getCartTotal(); // in cents
-  const shipping = 500; // in cents
-  const totalAmount = subtotal + shipping;
+  const [quoted, setQuoted] = useState<{ key: string; rate: z.infer<typeof orderQuoteResponse> }>();
+  const shippingQuote = useMutation({
+    mutationFn: async (input: Omit<OrderInput, "expectedTotal" | "expectedShipping">) => {
+      const response = await fetch("/api/orders/shipping-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? "Could not calculate shipping.");
+      return orderQuoteResponse.parse(result);
+    },
+  });
 
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: { name: "", email: "", address: "" },
+    defaultValues: { name: "", email: "", address: "", shippingPostcode: "" },
   });
+
+  const orderItems = items.map((item) => ({
+    productId: item.product.id,
+    quantity: item.quantity,
+    options: item.options ?? [],
+  }));
+  const values = form.watch();
+  const quoteKey = (data: CheckoutFormData) => JSON.stringify([data.address, data.shippingPostcode.trim(), orderItems]);
+  const rate = quoted?.key === quoteKey(values) ? quoted.rate : undefined;
+  const busy = createOrder.isPending || shippingQuote.isPending;
 
   if (isSuccess) {
     return (
@@ -86,22 +142,22 @@ export default function Checkout() {
   }
 
   const onSubmit = (data: CheckoutFormData) => {
-    const orderItems = items.map(item => ({
-      productId: item.product.id,
-      quantity: item.quantity,
-      options: item.options ?? [],
-    }));
-
-    createOrder.mutate(
-      { ...data, items: orderItems },
-      {
-        onError: (error) => toast({
-          variant: "destructive",
-          title: "Couldn’t submit your order request",
-          description: error.message,
-        }),
+    if (busy) return;
+    const input = { ...data, items: orderItems };
+    const key = quoteKey(data);
+    if (!rate) {
+      shippingQuote.mutate(input, {
+        onSuccess: (result) => setQuoted({ key, rate: result }),
+        onError: (error) => toast({ variant: "destructive", title: "Couldn’t calculate shipping", description: error.message }),
+      });
+      return;
+    }
+    createOrder.mutate({ ...input, expectedTotal: rate.totalAmount, expectedShipping: rate.shippingAmount }, {
+      onError: (error) => {
+        setQuoted(undefined);
+        toast({ variant: "destructive", title: "Couldn’t submit your order request", description: error.message });
       },
-    );
+    });
   };
 
   return (
@@ -115,9 +171,9 @@ export default function Checkout() {
             <section aria-labelledby="invoice-heading" className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-6">
               <h2 id="invoice-heading" className="font-display text-xl font-bold">Order</h2>
               <ul className="mt-4 divide-y divide-border">
-                {items.map((item) => {
+                {items.map((item, index) => {
                   const options = item.options ?? [];
-                  const price = unitPrice(item.product, options);
+                  const price = rate?.unitPrices[index] ?? unitPrice(item.product, options);
                   return (
                     <li key={cartLineKey(item)} className="flex justify-between gap-4 py-3">
                       <div className="min-w-0 break-words">
@@ -139,15 +195,18 @@ export default function Checkout() {
               <dl className="space-y-2 border-t border-border pt-3 tabular-nums">
                 <div className="flex justify-between gap-4">
                   <dt>Subtotal</dt>
-                  <dd>{formatPrice(subtotal)}</dd>
+                  <dd>{formatPrice(rate?.subtotal ?? subtotal)}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt>Shipping</dt>
-                  <dd>{formatPrice(shipping)}</dd>
+                  <dd className="text-right">
+                    {rate ? formatPrice(rate.shippingAmount) : "Calculated after you select Order"}
+                    <FreeDeliverySuburbs />
+                  </dd>
                 </div>
                 <div className="flex justify-between gap-4 border-t border-border pt-3 text-lg font-bold">
                   <dt>Total</dt>
-                  <dd>{formatPrice(totalAmount)}</dd>
+                  <dd>{rate ? formatPrice(rate.totalAmount) : "Pending shipping"}</dd>
                 </div>
               </dl>
             </section>
@@ -193,24 +252,42 @@ export default function Checkout() {
                   <FormItem>
                     <FormLabel className="text-base font-semibold">Shipping Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="123 Craft Street, City, Country" autoComplete="street-address" className="h-14 rounded-xl text-lg bg-background" {...field} />
+                      <Input placeholder="123 Craft Street, Sydney NSW, Australia" autoComplete="street-address" className="h-14 rounded-xl text-lg bg-background" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="shippingPostcode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Australian delivery postcode</FormLabel>
+                    <FormControl>
+                      <Input inputMode="numeric" autoComplete="postal-code" maxLength={4} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {rate && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Shipping is {formatPrice(rate.shippingAmount)}. Your total is {formatPrice(rate.totalAmount)}.
+                </p>
+              )}
+
               <Button
                 type="submit"
                 size="lg"
                 className="w-full h-16 rounded-2xl border-green-700 bg-green-700 text-lg font-bold text-white mt-8 shadow-lg shadow-green-700/25 focus-visible:ring-green-700"
-                disabled={createOrder.isPending}
+                disabled={busy}
               >
-                {createOrder.isPending ? (
-                  <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> Sending request…</>
-                ) : (
-                  "Order"
-                )}
+                {busy ? (
+                  <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> {shippingQuote.isPending ? "Calculating shipping…" : "Sending request…"}</>
+                ) : rate ? "Confirm order" : "Order"}
               </Button>
             </form>
           </Form>

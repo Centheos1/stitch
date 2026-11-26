@@ -203,7 +203,7 @@ SES production access is already enabled in Sydney, so mail can go to customer a
 ## Known gaps
 
 - **Admin sign-in has no second factor.** The password in Secrets Manager is the only check.
-- **Checkout records orders but doesn't take payment.** Stripe and shipping are not built.
+- **Checkout records orders with a flat domestic shipping rate.** Set the per-order charge in **Admin Portal → Shipping settings**. The default is $5.00.
 - **Contact page is display only.** It has no form.
 - **The shop has no test data isolation.** Local dev and the deployed site share the same table.
 

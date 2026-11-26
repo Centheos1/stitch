@@ -44,12 +44,30 @@ export function getStockLabel(
   return status;
 }
 
+export const australianPostcodeSchema = z.string().trim().regex(/^\d{4}$/, "Enter a four-digit Australian postcode.");
+
+export const DEFAULT_SHIPPING_RATE_CENTS = 500;
+export const freeDeliverySuburbsSchema = z.array(z.string().trim().min(1).max(80)).max(200)
+  .transform((suburbs) => Array.from(new Map(suburbs.map((name) => [name.toLowerCase(), name])).values()));
+export const shippingSettingsSchema = z.object({
+  rateCents: z.number().int().nonnegative().safe(),
+  freeDeliverySuburbs: freeDeliverySuburbsSchema.default([]),
+});
+
+export const shippingMeasurementsSchema = z.object({
+  lengthCm: z.number().finite().positive(),
+  widthCm: z.number().finite().positive(),
+  heightCm: z.number().finite().positive(),
+  weightKg: z.number().finite().positive(),
+});
+
 export const productSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
   description: z.string().trim().default(""),
   madeFrom: z.string().optional(), // older products may not have it
   measurements: z.string().trim().max(200).optional(),
+  shippingMeasurements: shippingMeasurementsSchema.nullish(),
   timeToMake: z.string().trim().max(100).optional(),
   price: z.number().int(), // in cents
   category: z.string().min(1),
@@ -69,6 +87,8 @@ export const orderSchema = z.object({
   email: z.string().email(),
   address: z.string().min(1),
   totalAmount: z.number().int(),
+  shippingAmount: z.number().int().nonnegative().optional(),
+  shippingPostcode: australianPostcodeSchema.optional(),
   status: z.string(),
   paymentRequestAmount: z.number().int().optional(),
   unreadCount: z.number().int().optional(),

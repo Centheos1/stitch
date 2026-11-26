@@ -1,3 +1,4 @@
+import { DEFAULT_INVOICE_TERMS_DAYS, invoiceTermsSchema } from "@shared/invoice-terms";
 import { randomUUID } from "crypto";
 import {
   BatchGetCommand,
@@ -12,6 +13,8 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import {
   productSchema,
+  DEFAULT_SHIPPING_RATE_CENTS,
+  shippingSettingsSchema,
   getStockStatus,
   orderSchema,
   orderItemSchema,
@@ -23,9 +26,15 @@ import {
   type OrderItem,
   type OrderMessage,
   type MailThread,
-  type SelectedOption,
 } from "@shared/schema";
 import { doc, tableName } from "./dynamo";
+import type { orderQuoteInput } from "@shared/routes";
+import type { z } from "zod";
+
+type QuoteInput = z.infer<typeof orderQuoteInput>;
+type ShippingSettings = z.infer<typeof shippingSettingsSchema>;
+const invoiceTermsKey = { pk: "SETTINGS#INVOICE", sk: "META" };
+const shippingSettingsKey = { pk: "SETTINGS#SHIPPING", sk: "META" };
 
 const PRODUCT_INDEX = "gsi1";
 
@@ -41,12 +50,10 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, updates: UpdateProductRequest): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<void>;
-  createOrder(input: {
-    name: string;
-    email: string;
-    address: string;
-    items: { productId: string; quantity: number; options?: SelectedOption[] }[];
-  }): Promise<{ order: Order; items: OrderItem[] }>;
+  getShippingSettings(): Promise<ShippingSettings>;
+  setShippingSettings(settings: ShippingSettings): Promise<void>;
+  quoteOrder(input: QuoteInput): Promise<{ subtotal: number; unitPrices: number[]; shippingAmount: number; totalAmount: number }>;
+  createOrder(input: QuoteInput & { expectedTotal: number; expectedShipping: number }): Promise<{ order: Order; items: OrderItem[] }>;
   listOrders(): Promise<Order[]>;
   getOrder(id: string): Promise<{ order: Order; items: OrderItem[]; messages: OrderMessage[] } | undefined>;
   markOrderRead(id: string): Promise<void>;
@@ -319,12 +326,38 @@ export class DynamoStorage implements IStorage {
     );
   }
 
-  async createOrder(input: {
-    name: string;
-    email: string;
-    address: string;
-    items: { productId: string; quantity: number; options?: SelectedOption[] }[];
-  }): Promise<{ order: Order; items: OrderItem[] }> {
+  async getInvoiceTerms() {
+    const { Item } = await doc.send(new GetCommand({ TableName: tableName, Key: invoiceTermsKey, ConsistentRead: true }));
+    return Item ? invoiceTermsSchema.parse(Item) : { days: DEFAULT_INVOICE_TERMS_DAYS };
+  }
+
+  async setInvoiceTerms(terms: { days: number }) {
+    await doc.send(new PutCommand({ TableName: tableName, Item: { ...invoiceTermsKey, ...terms } }));
+  }
+
+  async getShippingSettings(): Promise<ShippingSettings> {
+    const { Item } = await doc.send(new GetCommand({ TableName: tableName, Key: shippingSettingsKey, ConsistentRead: true }));
+    return shippingSettingsSchema.parse({
+      rateCents: Item?.rateCents ?? DEFAULT_SHIPPING_RATE_CENTS,
+      freeDeliverySuburbs: Item?.freeDeliverySuburbs,
+    });
+  }
+
+  async setShippingSettings(settings: ShippingSettings): Promise<void> {
+    await doc.send(new UpdateCommand({
+      TableName: tableName,
+      Key: shippingSettingsKey,
+      UpdateExpression: "SET rateCents = :rate, freeDeliverySuburbs = :suburbs",
+      ExpressionAttributeValues: { ":rate": settings.rateCents, ":suburbs": settings.freeDeliverySuburbs },
+    }));
+  }
+
+  async quoteOrder(input: QuoteInput) {
+    const { quote } = await this.prepareOrder(input);
+    return quote;
+  }
+
+  private async prepareOrder(input: QuoteInput) {
     const lines: OrderItem[] = [];
     let merchandise = 0;
     const requestedQuantities = new Map<string, number>();
@@ -372,16 +405,27 @@ export class DynamoStorage implements IStorage {
       });
     }
 
-    const totalAmount = merchandise + 500;
+    const { rateCents: shippingAmount } = await this.getShippingSettings();
+    const totalAmount = merchandise + shippingAmount;
     if (!Number.isSafeInteger(totalAmount)) {
       throw new OrderRequestError("The order total is too large. Reduce your quantities and try again.");
+    }
+    return { lines, quote: { subtotal: merchandise, unitPrices: lines.map((line) => line.unitPrice ?? 0), shippingAmount, totalAmount } };
+  }
+
+  async createOrder(input: QuoteInput & { expectedTotal: number; expectedShipping: number }): Promise<{ order: Order; items: OrderItem[] }> {
+    const { lines, quote } = await this.prepareOrder(input);
+    if (quote.totalAmount !== input.expectedTotal || quote.shippingAmount !== input.expectedShipping) {
+      throw new OrderRequestError("The order total changed. Please review a fresh shipping quote.", 409);
     }
     const order: Order = {
       id: randomUUID(),
       name: input.name,
       email: input.email,
       address: input.address,
-      totalAmount,
+      totalAmount: quote.totalAmount,
+      shippingAmount: quote.shippingAmount,
+      shippingPostcode: input.shippingPostcode,
       status: "new",
       stockDeducted: false,
       unreadCount: 0,

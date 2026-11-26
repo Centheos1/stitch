@@ -1,14 +1,15 @@
+import { invoiceTermsSchema } from "@shared/invoice-terms";
 import type { Express } from "express";
 import type { Server } from "http";
 import { OrderRequestError, storage } from "./storage";
-import { api } from "@shared/routes";
+import { api, orderQuoteInput } from "@shared/routes";
 import { z } from "zod";
 import { createImageUpload } from "./images";
 import { changePassword, login, logout, requireAdmin } from "./auth";
 import { deliver, MAIL_FROM, replyAddress, textToHtml } from "./mail";
 import { putHtml, readBytes, createOutgoingUpload, deleteObjects } from "./mail-files";
 import { MailInputError, messageHtml, removeThread, saveContactMessage, sendInboxMail } from "./inbox";
-import type { OrderMessage } from "@shared/schema";
+import { shippingSettingsSchema, type OrderMessage } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { logError } from "./logging";
 
@@ -140,6 +141,72 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/invoice-terms", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.getInvoiceTerms());
+    } catch (error) {
+      logError("Load invoice terms", error);
+      res.status(500).json({ message: "Could not load invoice settings." });
+    }
+  });
+
+  app.put("/api/admin/invoice-terms", requireAdmin, async (req, res) => {
+    const terms = invoiceTermsSchema.safeParse(req.body);
+    if (!terms.success) return res.status(400).json({ message: "Enter a whole number from 0 to 365." });
+    try {
+      await storage.setInvoiceTerms(terms.data);
+      res.json(terms.data);
+    } catch (error) {
+      logError("Save invoice terms", error);
+      res.status(500).json({ message: "Could not save invoice settings." });
+    }
+  });
+
+  app.get("/api/admin/shipping", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.getShippingSettings());
+    } catch (error) {
+      logError("Load shipping rate", error);
+      res.status(500).json({ message: "Could not load the shipping rate." });
+    }
+  });
+
+  app.put("/api/admin/shipping", requireAdmin, async (req, res) => {
+    const input = shippingSettingsSchema.safeParse(req.body);
+    if (!input.success) return res.status(400).json({ message: input.error.issues[0].message });
+    try {
+      await storage.setShippingSettings(input.data);
+      res.json(input.data);
+    } catch (error) {
+      logError("Save shipping rate", error);
+      res.status(500).json({ message: "Could not save the shipping rate." });
+    }
+  });
+
+  app.get("/api/shipping/free-delivery-suburbs", async (_req, res) => {
+    try {
+      const { freeDeliverySuburbs } = await storage.getShippingSettings();
+      res.set("Cache-Control", "no-store").json(freeDeliverySuburbs);
+    } catch (error) {
+      logError("Load free delivery suburbs", error);
+      res.status(500).json({ message: "Could not load the suburb list." });
+    }
+  });
+
+  app.post("/api/orders/shipping-quote", async (req, res) => {
+    const input = orderQuoteInput.safeParse(req.body);
+    if (!input.success) return res.status(400).json({ message: input.error.issues[0].message });
+    try {
+      res.json(await storage.quoteOrder(input.data));
+    } catch (error) {
+      if (error instanceof OrderRequestError) {
+        return res.status(error.status).json({ message: error.message });
+      }
+      logError("Quote order shipping", error);
+      res.status(500).json({ message: "Could not calculate shipping." });
+    }
+  });
+
   app.post(api.orders.create.path, async (req, res) => {
     try {
       const input = api.orders.create.input.parse(req.body);
@@ -156,7 +223,7 @@ export async function registerRoutes(
         "",
         summary,
         "",
-        `Total, including $5.00 shipping: $${(order.totalAmount / 100).toFixed(2)}`,
+        `Total, including $${((order.shippingAmount ?? 0) / 100).toFixed(2)} shipping: $${(order.totalAmount / 100).toFixed(2)}`,
         "",
         "Reply to this email and your message comes straight back to the shop.",
       ].join("\n");

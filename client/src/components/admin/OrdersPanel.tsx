@@ -1,3 +1,5 @@
+import { invoiceTermsSchema } from "@shared/invoice-terms";
+import { createInvoiceDraft, type InvoiceDraft } from "./payment-invoice";
 import { useEffect, useState } from "react";
 import {
   AlertDialog,
@@ -30,7 +32,7 @@ async function readJson<T>(path: string, method = "GET", body?: unknown): Promis
   return res.json() as Promise<T>;
 }
 
-export function OrdersPanel() {
+export function OrdersPanel({ onReviewInvoice }: { onReviewInvoice: (draft: InvoiceDraft) => void }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bundle, setBundle] = useState<OrderBundle | null>(null);
@@ -95,6 +97,20 @@ export function OrdersPanel() {
     }
   };
 
+  async function reviewInvoice() {
+    if (!bundle) return;
+    setSending(true);
+    setError("");
+    try {
+      const terms = invoiceTermsSchema.parse(await readJson("/api/admin/invoice-terms"));
+      onReviewInvoice(createInvoiceDraft(bundle.order, bundle.items, terms.days));
+    } catch {
+      setError("Could not load invoice settings. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   if (loading) {
     return <div className="p-12 text-center text-muted-foreground"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div>;
   }
@@ -112,7 +128,7 @@ export function OrdersPanel() {
             <div>
               <h2 className="font-display text-2xl font-bold">{bundle.order.name}</h2>
               <p className="text-sm text-muted-foreground">{bundle.order.email}</p>
-              <p className="text-sm text-muted-foreground">{bundle.order.address}</p>
+              <p className="text-sm text-muted-foreground">{bundle.order.address}{bundle.order.shippingPostcode && ` · Postcode ${bundle.order.shippingPostcode}`}</p>
             </div>
             <div className="text-right">
               <p className="font-bold">{money(bundle.order.totalAmount)}</p>
@@ -133,6 +149,9 @@ export function OrdersPanel() {
             ))}
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" className="rounded-xl" disabled={sending} onClick={reviewInvoice}>
+              Review invoice
+            </Button>
             {STATUSES.map((status) => (
               <AlertDialog key={status}>
                 <AlertDialogTrigger asChild>

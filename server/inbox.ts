@@ -1,3 +1,5 @@
+import { invoicePaymentDue } from "@shared/invoice-terms";
+import { INVOICE_LOGO_HTML, STITCH_LOGO_URL, isPaymentInvoice } from "@shared/branding";
 import { randomUUID } from "crypto";
 import { INBOX_FROM_ADDRESSES, PROBLEM_REPORT_SUBJECT, type MailAttachment, type OrderMessage } from "@shared/schema";
 import { deliver, makeMessageId, textToHtml } from "./mail";
@@ -99,8 +101,15 @@ export async function sendInboxMail(input: {
   const bcc = parseAddressList(input.bcc ?? "");
   if (to.length === 0) throw new MailInputError("Add a recipient.");
   if (to.length + cc.length + bcc.length > 20) throw new MailInputError("Too many recipients.");
-  const writtenHtml = sanitizeMailHtml((input.html ?? "").trim());
-  const writtenText = (input.text || htmlToText(writtenHtml)).trim();
+  let draftHtml = (input.html ?? "").trim();
+  const dueDateMarker = /<span data-invoice-due="true">[^<]*<\/span>/g;
+  const hasDueDate = draftHtml.includes('<span data-invoice-due="true">');
+  if (hasDueDate) {
+    const terms = await storage.getInvoiceTerms();
+    draftHtml = draftHtml.replace(dueDateMarker, invoicePaymentDue(terms.days));
+  }
+  const writtenHtml = sanitizeMailHtml(draftHtml);
+  const writtenText = ((hasDueDate ? htmlToText(writtenHtml) : input.text) || htmlToText(writtenHtml)).trim();
   if (!writtenText && !writtenHtml) throw new MailInputError("Write a message first.");
 
   const mode = input.mode === "reply" || input.mode === "replyAll" || input.mode === "forward" ? input.mode : "new";
@@ -146,7 +155,26 @@ export async function sendInboxMail(input: {
   }
 
   const text = [writtenText, quote.text].filter(Boolean).join("\n\n");
-  const html = sanitizeMailHtml(`${writtenHtml || textToHtml(writtenText)}${quote.html}`);
+  let body = writtenHtml || textToHtml(writtenText);
+  if (isPaymentInvoice(writtenText) && !body.includes(`src="${STITCH_LOGO_URL}"`)) {
+    body = INVOICE_LOGO_HTML + body;
+  }
+  const html = sanitizeMailHtml(`${body}${quote.html}`);
+  let deliveryHtml = html;
+  const logoSrc = `src="${STITCH_LOGO_URL}"`;
+  const logoCid = "stitch-invoice-logo@stitchhandmade.shop";
+  let logo: Buffer | undefined;
+  if (body.includes(logoSrc)) {
+    try {
+      const response = await fetch(STITCH_LOGO_URL, { signal: AbortSignal.timeout(5000) });
+      if (response.ok && response.headers.get("content-type")?.startsWith("image/png")) {
+        logo = Buffer.from(await response.arrayBuffer());
+        deliveryHtml = html.replaceAll(logoSrc, `src="cid:${logoCid}"`);
+      }
+    } catch {
+      // The hosted logo remains in the email if the inline copy cannot be loaded.
+    }
+  }
   const attachments = await loadAttachments(input.attachments ?? []);
   const copies: MailAttachment[] = [...attachments];
   for (const file of carried) {
@@ -172,10 +200,12 @@ export async function sendInboxMail(input: {
     replyTo: from,
     subject,
     text,
-    html,
+    html: deliveryHtml,
     inReplyTo,
     references,
-    attachments: payload,
+    attachments: logo
+      ? [...payload, { filename: "STITCH-logo.png", contentType: "image/png", content: logo, cid: logoCid }]
+      : payload,
   });
 
   const id = randomUUID();

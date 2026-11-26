@@ -1,3 +1,4 @@
+import { STITCH_LOGO_PATH } from "@shared/branding";
 import { Link } from "wouter";
 import { useProducts } from "@/hooks/use-products";
 
@@ -14,7 +15,7 @@ export function Footer() {
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="group mb-4 flex w-fit items-center">
               <img
-                src="/images/fe519ba2e15291847007a47adb5bac4169abae96080eb5c8c0a6e178b787d985.png"
+                src={STITCH_LOGO_PATH}
                 alt="STITCH Logo"
                 className="h-20 w-auto rounded-lg object-contain group-hover:outline group-hover:outline-[#36B960] group-active:outline group-active:outline-[#36B960]"
               />

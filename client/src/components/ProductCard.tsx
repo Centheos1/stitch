@@ -2,12 +2,14 @@ import { StockLabel } from "@/components/StockLabel";
 import { Link } from "wouter";
 import { type Product } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/hooks/use-cart";
+import { remainingStock, useCart } from "@/hooks/use-cart";
 import { ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
 
 export function ProductCard({ product, index = 0, showCategoryBadge = true }: { product: Product, index?: number, showCategoryBadge?: boolean }) {
   const addItem = useCart(state => state.addItem);
+
+  const available = useCart((state) => remainingStock(state.items, product));
 
   const primaryImage = product.imageUrls?.[0] ?? "";
 
@@ -82,7 +84,7 @@ export function ProductCard({ product, index = 0, showCategoryBadge = true }: { 
                 onClick={handleAddToCart}
                 size="icon"
                 aria-label={`Add ${product.name} to cart`}
-                disabled={product.stockAvailable === "Out of stock"}
+                disabled={available === 0}
                 className="rounded-2xl h-10 w-10 border-2 border-border bg-white text-foreground shadow-sm transition-all hover:border-green-800/50 hover:bg-white hover:text-green-800 hover:shadow-md"
               >
                 <ShoppingBag className="h-5 w-5" />

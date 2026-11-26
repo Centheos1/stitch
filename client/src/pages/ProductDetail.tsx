@@ -1,7 +1,7 @@
 import { StockLabel } from "@/components/StockLabel";
 import { useRoute } from "wouter";
 import { useProduct } from "@/hooks/use-products";
-import { unitPrice, useCart } from "@/hooks/use-cart";
+import { remainingStock, unitPrice, useCart } from "@/hooks/use-cart";
 import { type SelectedOption } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -15,6 +15,7 @@ export default function ProductDetail() {
 
   const { data: product, isLoading, error } = useProduct(id);
   const addItem = useCart((state) => state.addItem);
+  const cartItems = useCart((state) => state.items);
   const [quantity, setQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -152,9 +153,13 @@ export default function ProductDetail() {
     );
   }
 
+  const available = remainingStock(cartItems, product);
+  const selectedQuantity = Math.min(quantity, Math.max(1, available));
+
   const handleAddToCart = () => {
     if (!product) return;
-    addItem(product, quantity, chosen);
+    addItem(product, selectedQuantity, chosen);
+    setQuantity(1);
   };
 
   return (
@@ -293,16 +298,16 @@ export default function ProductDetail() {
                   <div className="font-bold text-foreground">Quantity:</div>
                   <div className="flex items-center bg-white rounded-xl border border-border overflow-hidden shadow-sm">
                     <button
-                      disabled={product.stockAvailable === "Out of stock"}
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={available === 0}
+                      onClick={() => setQuantity(Math.max(1, selectedQuantity - 1))}
                       className="px-4 py-3 hover:bg-muted text-foreground transition-colors"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <div className="w-12 text-center font-bold text-lg">{quantity}</div>
+                    <div className="w-12 text-center font-bold text-lg">{selectedQuantity}</div>
                     <button
-                      disabled={product.stockMode !== "made_to_order" && quantity >= (product.stockQuantity ?? 0)}
-                      onClick={() => setQuantity(quantity + 1)}
+                      disabled={selectedQuantity >= available}
+                      onClick={() => setQuantity(selectedQuantity + 1)}
                       className="px-4 py-3 hover:bg-muted text-foreground transition-colors"
                     >
                       <Plus className="h-4 w-4" />
@@ -313,7 +318,7 @@ export default function ProductDetail() {
                 <Button
                   onClick={handleAddToCart}
                   size="lg"
-                  disabled={product.stockAvailable === "Out of stock"}
+                  disabled={available === 0}
                   className="w-full rounded-2xl h-16 border-[#2D9950] bg-[#2D9950] text-lg font-bold text-white shadow-lg shadow-[#2D9950]/25 hover:-translate-y-1 focus-visible:ring-[#2D9950] transition-all"
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { insertProductSchema, insertOrderSchema, productSchema, orderSchema } from "./schema";
+import { australianPostcodeSchema, insertProductSchema, insertOrderSchema, productSchema, orderSchema } from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -17,6 +17,28 @@ export const errorSchemas = {
 const contactInput = z.object({
   email: z.string().trim().max(254).email("Enter a valid email address."),
   message: z.string().trim().min(1, "Enter a message.").max(10000, "Use 10,000 characters or fewer."),
+});
+
+export const orderQuoteInput = insertOrderSchema.pick({ name: true, email: true, address: true }).extend({
+  shippingPostcode: australianPostcodeSchema,
+  items: z.array(z.object({
+    productId: z.string(),
+    quantity: z.number().int().positive().safe(),
+    options: z.array(z.object({
+      name: z.string(),
+      choice: z.string(),
+    })).refine(
+      (options) => new Set(options.map(({ name }) => name)).size === options.length,
+      "Choose one option per group.",
+    ).optional(),
+  })).min(1).max(99, "An order can contain up to 99 cart lines."),
+});
+
+export const orderQuoteResponse = z.object({
+  subtotal: z.number().int().nonnegative().safe(),
+  unitPrices: z.array(z.number().int().safe()),
+  shippingAmount: z.number().int().nonnegative().safe(),
+  totalAmount: z.number().int().nonnegative().safe(),
 });
 
 export const api = {
@@ -88,25 +110,15 @@ export const api = {
     create: {
       method: "POST" as const,
       path: "/api/orders" as const,
-      input: insertOrderSchema.omit({ totalAmount: true }).extend({
-        items: z.array(
-          z.object({
-            productId: z.string(),
-            quantity: z.number().int().positive().safe(),
-            options: z.array(z.object({
-              name: z.string(),
-              choice: z.string(),
-            })).refine(
-              (options) => new Set(options.map(({ name }) => name)).size === options.length,
-              "Choose one option per group.",
-            ).optional(),
-          }),
-        ).min(1).max(99, "An order can contain up to 99 cart lines."),
+      input: orderQuoteInput.extend({
+        expectedTotal: z.number().int().nonnegative().safe(),
+        expectedShipping: z.number().int().nonnegative().safe(),
       }),
       responses: {
         201: orderSchema,
         400: errorSchemas.validation,
         409: errorSchemas.validation,
+        503: errorSchemas.validation,
       },
     },
   },

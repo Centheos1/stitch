@@ -1,3 +1,5 @@
+import { InvoiceSettings } from "@/components/admin/InvoiceSettings";
+import type { InvoiceDraft } from "@/components/admin/payment-invoice";
 import { useAdminProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/use-products";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -12,16 +14,30 @@ import { Edit, Plus, Trash2, ShieldCheck, Loader2, Lock, Upload, X, ArrowUp, Che
 import { apiRequest } from "@/lib/queryClient";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { InboxPanel } from "@/components/admin/InboxPanel";
+import { ShippingSettings } from "@/components/admin/ShippingSettings";
 import { getStockLabel, getStockStatus, type Product } from "@shared/schema";
 
 const isValidImageSrc = (val: string) =>
   val.startsWith("/images/") || val.startsWith("/uploads/") || val.startsWith("http://") || val.startsWith("https://");
+
+const shippingMeasurementFields = {
+  lengthCm: "Packed height (cm)",
+  widthCm: "Packed width (cm)",
+  heightCm: "Packed depth (cm)",
+  weightGrams: "Packed weight (g)",
+} as const;
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().trim(),
   madeFrom: z.string(),
   measurements: z.string().trim().max(200),
+  shippingMeasurements: z.object({
+    lengthCm: z.string(),
+    widthCm: z.string(),
+    heightCm: z.string(),
+    weightGrams: z.string(),
+  }),
   timeToMake: z.string().trim().max(100),
   priceStr: z.string().regex(/^\d+(\.\d{1,2})?$/, "Must be a valid price (e.g. 19.99)"),
   category: z.string().min(1, "Category is required"),
@@ -30,6 +46,13 @@ const productFormSchema = z.object({
   stockMode: z.enum(["tracked", "made_to_order"]),
   stockQuantityStr: z.string().optional(),
 }).superRefine((data, context) => {
+  if (Object.values(data.shippingMeasurements).some((value) => value !== "")) {
+    for (const [field, value] of Object.entries(data.shippingMeasurements)) {
+      if (!Number.isFinite(Number(value)) || Number(value) <= 0) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["shippingMeasurements", field], message: "Enter a positive packed measurement." });
+      }
+    }
+  }
   if (data.stockMode === "tracked" && !/^\d+$/.test(data.stockQuantityStr ?? "")) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["stockQuantityStr"], message: "Enter a whole number of 0 or more." });
   }
@@ -992,6 +1015,7 @@ function AdminPortal() {
   const [imagesUploading, setImagesUploading] = useState(false);
   const [productSaveError, setProductSaveError] = useState("");
   const [tab, setTab] = useState<"inventory" | "orders" | "inbox">("inventory");
+  const [invoiceDraft, setInvoiceDraft] = useState<InvoiceDraft>();
   const [notesOpen, setNotesOpen] = useState(false);
   const [showNotesHistory, setShowNotesHistory] = useState(false);
   const [notes, setNotes] = useState<AdminNote[]>([]);
@@ -1089,6 +1113,7 @@ function AdminPortal() {
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: "", description: "", madeFrom: "", measurements: "", timeToMake: "", priceStr: "", category: "", imageUrls: [],
+      shippingMeasurements: { lengthCm: "", widthCm: "", heightCm: "", weightGrams: "" },
       imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
       stockMode: "tracked",
       stockQuantityStr: "0",
@@ -1100,6 +1125,7 @@ function AdminPortal() {
     setProductSaveError("");
     form.reset({
       name: "", description: "", madeFrom: "", measurements: "", timeToMake: "", priceStr: "", category: "", imageUrls: [],
+      shippingMeasurements: { lengthCm: "", widthCm: "", heightCm: "", weightGrams: "" },
       imageBackgroundColor: DEFAULT_IMAGE_BACKGROUND_COLOR,
       stockMode: "tracked",
       stockQuantityStr: "0",
@@ -1116,6 +1142,14 @@ function AdminPortal() {
       description: product.description,
       madeFrom: product.madeFrom ?? "",
       measurements: product.measurements ?? "",
+      shippingMeasurements: {
+        lengthCm: product.shippingMeasurements?.lengthCm.toString() ?? "",
+        widthCm: product.shippingMeasurements?.widthCm.toString() ?? "",
+        heightCm: product.shippingMeasurements?.heightCm.toString() ?? "",
+        weightGrams: product.shippingMeasurements
+          ? String(Number((product.shippingMeasurements.weightKg * 1000).toPrecision(15)))
+          : "",
+      },
       timeToMake: product.timeToMake ?? "",
       priceStr: (product.price / 100).toFixed(2),
       category: product.category,
@@ -1157,6 +1191,12 @@ function AdminPortal() {
       description: data.description,
       madeFrom: data.madeFrom,
       measurements: data.measurements,
+      shippingMeasurements: data.shippingMeasurements.lengthCm ? {
+        lengthCm: Number(data.shippingMeasurements.lengthCm),
+        widthCm: Number(data.shippingMeasurements.widthCm),
+        heightCm: Number(data.shippingMeasurements.heightCm),
+        weightKg: Number(data.shippingMeasurements.weightGrams) / 1000,
+      } : null,
       timeToMake: data.timeToMake,
       price,
       category: data.category,
@@ -1211,9 +1251,8 @@ function AdminPortal() {
             <FileText className="mr-2 h-4 w-4" /> Notes
           </Button>
           <Button
-            variant="outline"
             size="sm"
-            className="rounded-xl text-muted-foreground"
+            className="rounded-xl border-[var(--stitch-red)] bg-[var(--stitch-red)] text-white"
             onClick={() => {
               void apiRequest("POST", "/api/admin/logout").finally(() => {
                 window.location.assign("/admin");
@@ -1222,6 +1261,8 @@ function AdminPortal() {
           >
             Sign Out
           </Button>
+          <ShippingSettings />
+          <InvoiceSettings />
           {tab === "inventory" && (
           <Dialog open={isOpen} onOpenChange={(open) => {
             if (!imagesUploading) setIsOpen(open);
@@ -1341,6 +1382,18 @@ function AdminPortal() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <fieldset className="grid gap-3 sm:grid-cols-2">
+                    <legend className="mb-2 font-semibold">Shipping measurements per item</legend>
+                    {(Object.keys(shippingMeasurementFields) as (keyof typeof shippingMeasurementFields)[]).map((key) => (
+                      <FormField key={key} control={form.control} name={`shippingMeasurements.${key}`} render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{shippingMeasurementFields[key]}</FormLabel>
+                          <FormControl><Input type="number" step="any" min="0" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    ))}
+                  </fieldset>
                   <FormField control={form.control} name="stockMode" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Stock type</FormLabel>
@@ -1509,10 +1562,10 @@ function AdminPortal() {
       <div className="flex gap-2 mb-6">
         <Button type="button" variant={tab === "inventory" ? "default" : "outline"} className={`rounded-xl ${tab === "inventory" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inventory")}>Inventory</Button>
         <Button type="button" variant={tab === "orders" ? "default" : "outline"} className={`rounded-xl ${tab === "orders" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("orders")}>Orders</Button>
-        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className={`rounded-xl ${tab === "inbox" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => setTab("inbox")}>Inbox</Button>
+        <Button type="button" variant={tab === "inbox" ? "default" : "outline"} className={`rounded-xl ${tab === "inbox" ? "border-[#2D9950] bg-[#2D9950] text-white hover:border-[#2D9950] hover:bg-[#2D9950]" : ""}`} onClick={() => { if (tab !== "inbox") setInvoiceDraft(undefined); setTab("inbox"); }}>Inbox</Button>
       </div>
 
-      {tab === "orders" ? <OrdersPanel /> : tab === "inbox" ? <InboxPanel /> : (
+      {tab === "orders" ? <OrdersPanel onReviewInvoice={(draft) => { setInvoiceDraft(draft); setTab("inbox"); }} /> : tab === "inbox" ? <InboxPanel initialInvoice={invoiceDraft} /> : (
       <div className="bg-white rounded-3xl shadow-sm border border-border overflow-hidden">
         {isLoading ? (
           <div className="p-12 text-center text-muted-foreground animate-pulse">Loading inventory...</div>

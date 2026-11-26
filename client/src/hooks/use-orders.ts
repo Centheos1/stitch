@@ -15,7 +15,7 @@ export function useCreateOrder() {
       });
       
       if (!res.ok) {
-        if (res.status === 400 || res.status === 409) {
+        if (res.status === 400 || res.status === 409 || res.status === 503) {
           const error = api.orders.create.responses[res.status].parse(await res.json());
           throw new Error(error.message || "Validation failed");
         }

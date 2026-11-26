@@ -84,7 +84,7 @@ export default function Shop() {
                   onClick={() => selectCategory(cat)}
                   className={`text-left px-4 py-3 rounded-xl transition-colors font-semibold ${
                     activeCategory === cat
-                      ? "bg-[#36B960] text-[#14532D] shadow-md shadow-[#2D9950]/40"
+                      ? "bg-[#36B960] text-white shadow-md shadow-[#2D9950]/40"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   }`}
                 >

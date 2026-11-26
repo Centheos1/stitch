@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { cartLineKey, unitPrice, useCart } from "@/hooks/use-cart";
+import { cartLineKey, remainingStock, unitPrice, useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
@@ -85,8 +85,6 @@ export default function Cart() {
   }
 
   const subtotal = getCartTotal() / 100;
-  const shipping = 5.00; // Flat shipping rate
-  const total = subtotal + shipping;
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
@@ -131,7 +129,7 @@ export default function Cart() {
                   <div className="flex items-center bg-background rounded-xl border border-border overflow-hidden">
                     <button 
                       onClick={() => updateQuantity(key, item.quantity - 1)}
-                      className="px-3 py-2 hover:bg-muted text-foreground transition-colors"
+                      className="px-3 py-2 hover:bg-muted text-foreground transition-colors disabled:opacity-50"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
@@ -141,8 +139,10 @@ export default function Cart() {
                       updateQuantity={updateQuantity}
                     />
                     <button 
+                      disabled={remainingStock(items, item.product) === 0}
+                      aria-label="Increase quantity"
                       onClick={() => updateQuantity(key, item.quantity + 1)}
-                      className="px-3 py-2 hover:bg-muted text-foreground transition-colors"
+                      className="px-3 py-2 hover:bg-muted text-foreground transition-colors disabled:opacity-50"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -168,21 +168,10 @@ export default function Cart() {
           <div className="bg-white p-8 rounded-[2.5rem] border-2 border-border shadow-xl sticky top-28">
             <h2 className="font-display text-2xl font-bold mb-6">Order Summary</h2>
             
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="font-medium text-foreground">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Shipping</span>
-                <span className="font-medium text-foreground">${shipping.toFixed(2)}</span>
-              </div>
-            </div>
-            
             <div className="border-t border-border pt-6 mb-8">
               <div className="flex justify-between items-center">
-                <span className="font-display font-bold text-xl">Total</span>
-                <span className="font-display font-bold text-3xl text-black">${total.toFixed(2)}</span>
+                <span className="font-display font-bold text-xl">Subtotal</span>
+                <span className="font-display font-bold text-3xl text-black">${subtotal.toFixed(2)}</span>
               </div>
             </div>
             

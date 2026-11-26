@@ -5,6 +5,8 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useCart } from "@/hooks/use-cart";
+import { useProducts } from "@/hooks/use-products";
 import NotFound from "@/pages/not-found";
 
 // Layout Components
@@ -23,6 +25,18 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Admin from "./pages/Admin";
 import BreakpointPreview from "./pages/BreakpointPreview";
+
+function CartStockSync() {
+  const hasItems = useCart((state) => state.items.length > 0);
+  const syncStock = useCart((state) => state.syncStock);
+  const { data, isSuccess, isFetching } = useProducts();
+
+  useEffect(() => {
+    if (hasItems && isSuccess && !isFetching) syncStock(data);
+  }, [data, hasItems, isSuccess, isFetching, syncStock]);
+
+  return null;
+}
 
 function Router() {
   const [location] = useLocation();
@@ -63,6 +77,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <CartStockSync />
         <Toaster />
         <ProblemReportButton />
         <ShopFiltersProvider>
