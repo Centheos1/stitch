@@ -7,6 +7,8 @@ export function MailBody({ message }: { message: OrderMessage }) {
   const [html, setHtml] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!message.htmlKey) return;
+    setHtml(null);
     let cancelled = false;
     apiRequest("GET", `/api/admin/mail/messages/${message.id}/body`)
       .then((res) => res.json() as Promise<{ html: string }>)
@@ -19,10 +21,10 @@ export function MailBody({ message }: { message: OrderMessage }) {
     return () => {
       cancelled = true;
     };
-  }, [message.id]);
+  }, [message.id, message.htmlKey]);
 
+  if (!message.htmlKey || html === "") return <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{message.text}</p>;
   if (html === null) return <p className="mt-2 text-sm text-muted-foreground">Loading message…</p>;
-  if (!html) return <p className="mt-2 whitespace-pre-wrap text-sm">{message.text}</p>;
   return (
     <iframe
       sandbox=""

@@ -127,6 +127,7 @@ export const mailThreadSchema = z.object({
   lastMessageAt: z.string(),
   unreadCount: z.number().int(),
   archived: z.boolean(),
+  spam: z.boolean().optional(),
 });
 
 export const PROBLEM_REPORT_SUBJECT = "Website problem report";

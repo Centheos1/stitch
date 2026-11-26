@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { simpleParser, type AddressObject, type ParsedMail } from "mailparser";
 import { randomUUID } from "crypto";
 
@@ -13,7 +13,7 @@ const bucket = process.env.MAIL_BUCKET;
 
 type SesRecord = {
   ses?: {
-    mail?: { messageId?: string };
+    mail?: { messageId?: string; timestamp?: string };
     receipt?: {
       recipients?: string[];
       spamVerdict?: { status?: string };
@@ -86,9 +86,9 @@ async function storeParts(id: string, mail: ParsedMail): Promise<{ htmlKey?: str
     }));
   }
   const attachments = [];
-  for (const part of mail.attachments ?? []) {
+  for (const [index, part] of (mail.attachments ?? []).entries()) {
     if (!part.content?.length) continue;
-    const attachmentId = randomUUID();
+    const attachmentId = id.startsWith("ses-spam-") ? String(index) : randomUUID();
     const key = `attachments/${id}/${attachmentId}`;
     await s3.send(new PutObjectCommand({
       Bucket: bucket,
@@ -108,11 +108,11 @@ async function storeParts(id: string, mail: ParsedMail): Promise<{ htmlKey?: str
   return { htmlKey, attachments };
 }
 
-async function fileMessage(mail: ParsedMail, sesMessageId: string, recipients: string[], spam: boolean): Promise<void> {
-  const where = await destination(mail, recipients);
-  const id = randomUUID();
-  const createdAt = new Date().toISOString();
-  const threadId = where.orderId ? "" : (where.threadId || randomUUID());
+async function fileMessage(mail: ParsedMail, sesMessageId: string, recipients: string[], spam: boolean, timestamp?: string): Promise<void> {
+  const where = spam ? { orderId: "", threadId: "" } : await destination(mail, recipients);
+  const id = spam ? `ses-spam-${sesMessageId}` : randomUUID();
+  const createdAt = timestamp || new Date().toISOString();
+  const threadId = spam ? id : where.orderId ? "" : (where.threadId || randomUUID());
   const stored = await storeParts(id, mail);
   const from = addresses(mail.from)[0] || "";
   const to = addresses(mail.to);
@@ -138,6 +138,36 @@ async function fileMessage(mail: ParsedMail, sesMessageId: string, recipients: s
   };
   const pk = where.orderId ? `ORDER#${where.orderId}` : `THREAD#${threadId}`;
   const sk = `MSG#${createdAt}#${id}`;
+  if (spam) {
+    const summaryKey = { pk: "MAILBOX#inbox", sk: `THREAD#${threadId}` };
+    try {
+      await doc.send(new TransactWriteCommand({
+        TransactItems: [
+          { Put: {
+            TableName: tableName,
+            Item: {
+              ...summaryKey, threadId, subject: message.subject, correspondent: from,
+              snippet: text.slice(0, 140), lastMessageAt: createdAt,
+              archived: false, spam: true, unreadCount: 1,
+            },
+            ConditionExpression: "attribute_not_exists(pk)",
+          } },
+          { Put: { TableName: tableName, Item: { pk, sk, ...message } } },
+          { Put: {
+            TableName: tableName,
+            Item: { pk: `MAILMSG#${id}`, sk: "META", messagePk: pk, messageSk: sk },
+          } },
+        ],
+      }));
+    } catch (err) {
+      if ((err as { name?: string }).name !== "TransactionCanceledException") throw err;
+      const existing = await doc.send(new GetCommand({
+        TableName: tableName, Key: summaryKey, ConsistentRead: true,
+      }));
+      if (!existing.Item) throw err;
+    }
+    return;
+  }
   let created = true;
   try {
     await doc.send(new PutCommand({
@@ -195,11 +225,24 @@ export async function handler(event: { Records?: SesRecord[] }): Promise<void> {
   for (const record of event.Records ?? []) {
     const sesMessageId = record.ses?.mail?.messageId;
     if (!sesMessageId) continue;
+    const receipt = record.ses?.receipt;
+    if (receipt?.virusVerdict?.status === "FAIL") {
+      // SES already stored the original in private S3. Keep it out of all app views.
+      console.warn("Inbound email quarantined after SES virus scan", { sesMessageId });
+      continue;
+    }
+    const spam = receipt?.spamVerdict?.status === "FAIL";
+    if (spam) {
+      const existing = await doc.send(new GetCommand({
+        TableName: tableName,
+        Key: { pk: "MAILBOX#inbox", sk: `THREAD#ses-spam-${sesMessageId}` },
+        ConsistentRead: true,
+      }));
+      if (existing.Item) continue;
+    }
     const raw = await readRaw(sesMessageId);
     const mail = await simpleParser(raw);
-    const recipients = (record.ses?.receipt?.recipients ?? []).map((address) => address.toLowerCase());
-    const spam = record.ses?.receipt?.spamVerdict?.status === "FAIL"
-      || record.ses?.receipt?.virusVerdict?.status === "FAIL";
-    await fileMessage(mail, sesMessageId, recipients, spam);
+    const recipients = (receipt?.recipients ?? []).map((address) => address.toLowerCase());
+    await fileMessage(mail, sesMessageId, recipients, spam, spam ? record.ses?.mail?.timestamp : undefined);
   }
 }

@@ -197,8 +197,8 @@ export async function registerRoutes(
 
   app.get("/api/admin/inbox", requireAdmin, async (req, res) => {
     try {
-      const archived = req.query.box === "archive";
-      res.json(await storage.listMailThreads(archived));
+      const box = req.query.box;
+      res.json(await storage.listMailThreads(box === "archive" || box === "spam" ? box : "inbox"));
     } catch (err) {
       logError("List inbox threads", err);
       res.status(500).json({ message: "Internal server error" });

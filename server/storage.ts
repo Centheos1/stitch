@@ -54,7 +54,7 @@ export interface IStorage {
   setOrderStatus(id: string, status: string, paymentRequestAmount?: number): Promise<Order | undefined>;
   listUnmatchedMail(): Promise<OrderMessage[]>;
   attachMail(messageId: string, orderId: string): Promise<void>;
-  listMailThreads(archived: boolean): Promise<MailThread[]>;
+  listMailThreads(box: "inbox" | "archive" | "spam"): Promise<MailThread[]>;
   getMailThread(threadId: string): Promise<{ thread: MailThread; messages: OrderMessage[] } | undefined>;
   getMailMessage(id: string): Promise<OrderMessage | undefined>;
   saveThreadMessage(input: {
@@ -115,6 +115,7 @@ function toThread(item: Record<string, unknown>): MailThread {
     lastMessageAt: String(item.lastMessageAt ?? ""),
     unreadCount: typeof item.unreadCount === "number" ? item.unreadCount : 0,
     archived: item.archived === true,
+    spam: item.spam === true,
   };
 }
 
@@ -481,13 +482,18 @@ export class DynamoStorage implements IStorage {
     }
   }
 
-  async listMailThreads(archived: boolean): Promise<MailThread[]> {
-    const rows = await queryAll({
-      KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
-      ExpressionAttributeValues: { ":pk": "MAILBOX#inbox", ":sk": "THREAD#" },
-    });
-    const threads = rows.map(toThread).filter((thread) => thread.archived === archived);
-    const legacy = await this.listUnmatchedMail();
+  async listMailThreads(box: "inbox" | "archive" | "spam"): Promise<MailThread[]> {
+    const [rows, legacy] = await Promise.all([
+      queryAll({
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :sk)",
+        ExpressionAttributeValues: { ":pk": "MAILBOX#inbox", ":sk": "THREAD#" },
+      }),
+      box === "spam" ? [] : this.listUnmatchedMail(),
+    ]);
+    const archived = box === "archive";
+    const threads = rows.map(toThread).filter((thread) =>
+      box === "spam" ? thread.spam : !thread.spam && thread.archived === archived,
+    );
     for (const message of legacy) {
       if ((message.archived === true) === archived) threads.push(legacyThread(message));
     }
@@ -606,7 +612,7 @@ export class DynamoStorage implements IStorage {
     await doc.send(new UpdateCommand({
       TableName: tableName,
       Key: { pk: "MAILBOX#inbox", sk: `THREAD#${threadId}` },
-      UpdateExpression: "SET archived = :archived",
+      UpdateExpression: archived ? "SET archived = :archived" : "SET archived = :archived REMOVE spam",
       ConditionExpression: "attribute_exists(pk)",
       ExpressionAttributeValues: { ":archived": archived },
     }));
@@ -662,7 +668,7 @@ export class DynamoStorage implements IStorage {
       TableName: tableName,
       Key: { pk: `MAILMSG#${message.id}`, sk: "META" },
     }));
-    if (message.messageId) {
+    if (message.messageId && !message.id.startsWith("ses-spam-")) {
       await doc.send(new DeleteCommand({
         TableName: tableName,
         Key: { pk: `EMAIL#${emailKey(message.messageId)}`, sk: "META" },
@@ -754,7 +760,10 @@ export class DynamoStorage implements IStorage {
   async attachMail(messageId: string, orderId: string): Promise<void> {
     const lookup = await doc.send(new GetCommand({
       TableName: tableName,
-      Key: { pk: `EMAIL#${emailKey(messageId)}`, sk: "META" },
+      Key: {
+        pk: messageId.startsWith("ses-spam-") ? `MAILMSG#${messageId}` : `EMAIL#${emailKey(messageId)}`,
+        sk: "META",
+      },
     }));
     const pointer = lookup.Item;
     if (!pointer?.messagePk || !pointer.messageSk) throw new Error("Message not found");
