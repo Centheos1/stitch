@@ -13,11 +13,11 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="group mb-4 flex w-fit items-center">
+            <Link href="/" className="mb-4 flex w-fit items-center">
               <img
                 src={STITCH_LOGO_PATH}
                 alt="STITCH Logo"
-                className="h-20 w-auto rounded-lg object-contain group-hover:outline group-hover:outline-[#36B960] group-active:outline group-active:outline-[#36B960]"
+                className="h-20 w-auto rounded-lg object-contain"
               />
             </Link>
             <p className="text-muted-foreground max-w-sm">

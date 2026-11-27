@@ -1245,24 +1245,27 @@ function AdminPortal() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap justify-end">
-          <ChangePassword />
-          <Button variant="outline" size="sm" className="rounded-xl text-muted-foreground" onClick={() => setNotesOpen(true)}>
-            <FileText className="mr-2 h-4 w-4" /> Notes
-          </Button>
-          <Button
-            size="sm"
-            className="rounded-xl border-[var(--stitch-red)] bg-[var(--stitch-red)] text-white"
-            onClick={() => {
-              void apiRequest("POST", "/api/admin/logout").finally(() => {
-                window.location.assign("/admin");
-              });
-            }}
-          >
-            Sign Out
-          </Button>
-          <ShippingSettings />
-          <InvoiceSettings />
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <ChangePassword />
+            <Button variant="outline" size="sm" className="rounded-xl text-muted-foreground" onClick={() => setNotesOpen(true)}>
+              <FileText className="mr-2 h-4 w-4" /> Notes
+            </Button>
+            <ShippingSettings />
+            <InvoiceSettings />
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Button
+              size="sm"
+              className="rounded-xl border-[var(--stitch-red)] bg-[var(--stitch-red)] text-white"
+              onClick={() => {
+                void apiRequest("POST", "/api/admin/logout").finally(() => {
+                  window.location.assign("/admin");
+                });
+              }}
+            >
+              Sign Out
+            </Button>
           {tab === "inventory" && (
           <Dialog open={isOpen} onOpenChange={(open) => {
             if (!imagesUploading) setIsOpen(open);
@@ -1466,6 +1469,7 @@ function AdminPortal() {
             </DialogContent>
           </Dialog>
           )}
+          </div>
         </div>
       </div>
 

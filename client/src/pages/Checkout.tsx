@@ -111,7 +111,7 @@ export default function Checkout() {
   const values = form.watch();
   const quoteKey = (data: CheckoutFormData) => JSON.stringify([data.address, data.shippingPostcode.trim(), orderItems]);
   const rate = quoted?.key === quoteKey(values) ? quoted.rate : undefined;
-  const busy = createOrder.isPending || shippingQuote.isPending;
+  const busy = form.formState.isSubmitting || createOrder.isPending || shippingQuote.isPending;
 
   if (isSuccess) {
     return (
@@ -125,9 +125,9 @@ export default function Checkout() {
           >
             <CheckCircle2 className="h-24 w-24" />
           </motion.div>
-          <h1 className="font-display text-4xl font-bold mb-4">Invoice request received</h1>
+          <h1 className="font-display text-4xl font-bold mb-4">Order received</h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-md">
-            We'll email you to confirm your order and provide payment instructions. No payment has been taken.
+            An invoice for your order will be emailed to the address given within four business days.
           </p>
           <Button asChild size="lg" className="rounded-2xl h-14 px-8 text-lg font-bold">
             <Link href="/">Return Home</Link>
@@ -141,23 +141,26 @@ export default function Checkout() {
     return <Redirect to="/cart" replace />;
   }
 
-  const onSubmit = (data: CheckoutFormData) => {
-    if (busy) return;
+  const onSubmit = async (data: CheckoutFormData) => {
+    if (createOrder.isPending || shippingQuote.isPending) return;
     const input = { ...data, items: orderItems };
-    const key = quoteKey(data);
-    if (!rate) {
-      shippingQuote.mutate(input, {
-        onSuccess: (result) => setQuoted({ key, rate: result }),
-        onError: (error) => toast({ variant: "destructive", title: "Couldn’t review your order", description: error.message }),
+    try {
+      const currentRate = rate ?? await shippingQuote.mutateAsync(input);
+      if (!rate && (currentRate.totalAmount !== subtotal + FLAT_SHIPPING_RATE_CENTS ||
+        items.some((item, index) => currentRate.unitPrices[index] !== unitPrice(item.product, item.options ?? [])))) {
+        setQuoted({ key: quoteKey(data), rate: currentRate });
+        toast({ title: "Order prices updated", description: "Check the updated prices, then select Order to submit." });
+        return;
+      }
+      await createOrder.mutateAsync({ ...input, expectedTotal: currentRate.totalAmount, expectedShipping: currentRate.shippingAmount });
+    } catch (error) {
+      setQuoted(undefined);
+      toast({
+        variant: "destructive",
+        title: "Couldn’t submit your order request",
+        description: error instanceof Error ? error.message : "Please try again.",
       });
-      return;
     }
-    createOrder.mutate({ ...input, expectedTotal: rate.totalAmount, expectedShipping: rate.shippingAmount }, {
-      onError: (error) => {
-        setQuoted(undefined);
-        toast({ variant: "destructive", title: "Couldn’t submit your order request", description: error.message });
-      },
-    });
   };
 
   return (
@@ -280,8 +283,8 @@ export default function Checkout() {
                 disabled={busy}
               >
                 {busy ? (
-                  <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> {shippingQuote.isPending ? "Reviewing order…" : "Sending request…"}</>
-                ) : rate ? "Confirm order" : "Review order"}
+                  <><Loader2 className="mr-2 h-6 w-6 animate-spin" /> Sending request…</>
+                ) : "Order"}
               </Button>
             </form>
           </Form>
