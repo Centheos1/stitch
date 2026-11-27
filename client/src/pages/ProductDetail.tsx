@@ -162,6 +162,8 @@ export default function ProductDetail() {
     setQuantity(1);
   };
 
+  const showHandmadeNote = product.id === "8" || product.id === "9"; // Christmas wreath and Nativity scene.
+
   return (
     <div className="min-h-screen py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -246,7 +248,7 @@ export default function ProductDetail() {
                   {product.description}
                 </p>
               )}
-              {(product.madeFrom?.trim() || product.measurements) && (
+              {(product.madeFrom?.trim() || product.measurements || showHandmadeNote) && (
                 <Collapsible key={product.id} className="mb-6 border-t border-border pt-6">
                   <CollapsibleTrigger asChild>
                     <Button type="button" variant="outline" className="group rounded-xl">
@@ -263,6 +265,11 @@ export default function ProductDetail() {
                     {product.measurements && (
                       <p className="whitespace-pre-line">
                         <span className="font-semibold text-foreground">Approximate measurements: </span>{product.measurements}
+                      </p>
+                    )}
+                    {showHandmadeNote && (
+                      <p>
+                        As all items are handmade, items may vary in size and colouring. We do our best to keep everything as similar as possible. This variance is what makes each item unique and gives it character.
                       </p>
                     )}
                   </CollapsibleContent>

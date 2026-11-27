@@ -1260,7 +1260,7 @@ function AdminPortal() {
               className="rounded-xl border-[var(--stitch-red)] bg-[var(--stitch-red)] text-white"
               onClick={() => {
                 void apiRequest("POST", "/api/admin/logout").finally(() => {
-                  window.location.assign("/admin");
+                  window.location.assign("/");
                 });
               }}
             >
