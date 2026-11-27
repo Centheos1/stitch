@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { productSchema } from "@shared/schema";
+import { z } from "zod";
 import { api, buildUrl, type ProductInput, type ProductResponse } from "@shared/routes";
 
 export function useProducts(category?: string, search?: string) {
@@ -19,14 +21,15 @@ export function useProducts(category?: string, search?: string) {
   });
 }
 
+const adminProductsSchema = z.array(productSchema);
+
 export function useAdminProducts() {
   return useQuery({
     queryKey: ["/api/admin/products"],
     queryFn: async () => {
       const res = await fetch("/api/admin/products", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch admin products");
-      const data = await res.json();
-      return api.products.list.responses[200].parse(data);
+      return adminProductsSchema.parse(await res.json());
     },
   });
 }

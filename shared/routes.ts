@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { australianPostcodeSchema, insertProductSchema, insertOrderSchema, productSchema, orderSchema } from "./schema";
 
+const storefrontProductSchema = productSchema.omit({ timeToMake: true });
+
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -67,14 +69,14 @@ export const api = {
         })
         .optional(),
       responses: {
-        200: z.array(productSchema),
+        200: z.array(storefrontProductSchema),
       },
     },
     get: {
       method: "GET" as const,
       path: "/api/products/:id" as const,
       responses: {
-        200: productSchema,
+        200: storefrontProductSchema,
         404: errorSchemas.notFound,
       },
     },

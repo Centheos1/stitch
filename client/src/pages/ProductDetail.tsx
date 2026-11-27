@@ -246,7 +246,7 @@ export default function ProductDetail() {
                   {product.description}
                 </p>
               )}
-              {(product.madeFrom?.trim() || product.measurements || product.timeToMake) && (
+              {(product.madeFrom?.trim() || product.measurements) && (
                 <Collapsible key={product.id} className="mb-6 border-t border-border pt-6">
                   <CollapsibleTrigger asChild>
                     <Button type="button" variant="outline" className="group rounded-xl">
@@ -264,9 +264,6 @@ export default function ProductDetail() {
                       <p className="whitespace-pre-line">
                         <span className="font-semibold text-foreground">Approximate measurements: </span>{product.measurements}
                       </p>
-                    )}
-                    {product.timeToMake && (
-                      <p><span className="font-semibold text-foreground">Time to make: </span>{product.timeToMake}</p>
                     )}
                   </CollapsibleContent>
                 </Collapsible>

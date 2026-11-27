@@ -62,7 +62,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid product filters." });
       }
       const products = await storage.getProducts(category, search);
-      res.json(products);
+      res.json(api.products.list.responses[200].parse(products));
     } catch (err) {
       logError("List storefront products", err);
       res.status(500).json({ message: "Internal server error" });
@@ -84,7 +84,7 @@ export async function registerRoutes(
       if (!product || !product.shopVisible) {
         return res.status(404).json({ message: "Product not found" });
       }
-      res.json(product);
+      res.json(api.products.get.responses[200].parse(product));
     } catch (err) {
       logError("Open storefront product", err);
       res.status(500).json({ message: "Internal server error" });
