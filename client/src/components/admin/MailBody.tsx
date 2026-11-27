@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 
 export function MailBody({ message }: { message: OrderMessage }) {
   const [html, setHtml] = useState<string | null>(null);
+  const hasFormattedBody = Boolean(message.htmlKey || message.htmlBody);
 
   useEffect(() => {
-    if (!message.htmlKey) return;
+    if (!hasFormattedBody) return;
     setHtml(null);
     let cancelled = false;
     apiRequest("GET", `/api/admin/mail/messages/${message.id}/body`)
@@ -21,9 +22,9 @@ export function MailBody({ message }: { message: OrderMessage }) {
     return () => {
       cancelled = true;
     };
-  }, [message.id, message.htmlKey]);
+  }, [message.id, hasFormattedBody]);
 
-  if (!message.htmlKey || html === "") return <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{message.text}</p>;
+  if (!hasFormattedBody || html === "") return <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{message.text}</p>;
   if (html === null) return <p className="mt-2 text-sm text-muted-foreground">Loading message…</p>;
   return (
     <iframe

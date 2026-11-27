@@ -152,10 +152,14 @@ export async function registerRoutes(
 
   app.put("/api/admin/invoice-terms", requireAdmin, async (req, res) => {
     const terms = invoiceTermsSchema.safeParse(req.body);
-    if (!terms.success) return res.status(400).json({ message: "Enter a whole number from 0 to 365." });
+    if (!terms.success) {
+      const issue = terms.error.issues[0];
+      return res.status(400).json({
+        message: issue.path[0] === "days" ? "Enter a whole number from 0 to 365." : issue.message,
+      });
+    }
     try {
-      await storage.setInvoiceTerms(terms.data);
-      res.json(terms.data);
+      res.json(await storage.setInvoiceTerms(terms.data));
     } catch (error) {
       logError("Save invoice terms", error);
       res.status(500).json({ message: "Could not save invoice settings." });
@@ -390,13 +394,26 @@ export async function registerRoutes(
 
   app.get("/api/admin/orders/:id", requireAdmin, async (req, res) => {
     try {
-      const bundle = await storage.getOrder(String(req.params.id));
+      const bundle = await storage.getOrder(String(req.params.id), { includeMakingTimes: true });
       if (!bundle) return res.status(404).json({ message: "Order not found" });
       await storage.markOrderRead(bundle.order.id);
       res.json({ ...bundle, order: { ...bundle.order, unreadCount: 0 } });
     } catch (err) {
       logError("Open order", err);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/orders/:id/invoice-draft", requireAdmin, async (req, res) => {
+    try {
+      const terms = await storage.getInvoiceTerms();
+      const invoiceNumber = await storage.reserveInvoiceNumber(String(req.params.id));
+      if (!invoiceNumber) return res.status(404).json({ message: "Order not found" });
+      res.json({ ...terms, invoiceNumber });
+    } catch (error) {
+      if (error instanceof OrderRequestError) return res.status(error.status).json({ message: error.message });
+      logError("Prepare invoice draft", error);
+      res.status(500).json({ message: "Could not prepare the invoice. Please try again." });
     }
   });
 

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cartLineKey, remainingStock, unitPrice, useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/layout/BackLink";
 import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { useState } from "react";
@@ -68,7 +69,10 @@ export default function Cart() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+      <div className="relative mx-auto flex min-h-[70vh] max-w-7xl flex-col items-center justify-center px-4 pb-8 pt-20 text-center">
+        <div className="absolute left-4 top-4 sm:left-6 lg:left-8">
+          <BackLink href="/shop" label="Back to shop" />
+        </div>
         <div className="h-32 w-32 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6">
           <ShoppingBag className="h-16 w-16" />
         </div>
@@ -89,8 +93,9 @@ export default function Cart() {
   const shipping = FLAT_SHIPPING_RATE_CENTS / 100;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
-      <h1 className="font-display text-4xl font-bold mb-10">Your Cart ({items.length} items)</h1>
+    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-12 pt-4 sm:px-6 lg:px-8">
+      <BackLink href="/shop" label="Back to shop" />
+      <h1 className="mb-10 mt-4 font-display text-4xl font-bold">Your Cart ({items.length} items)</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         
@@ -176,7 +181,7 @@ export default function Cart() {
                 <span className="font-display font-bold text-3xl text-black">${subtotal.toFixed(2)}</span>
               </div>
               <div className="mt-3 flex justify-between gap-4">
-                <span>Flat-rate shipping</span>
+                <span>Shipping</span>
                 <span>${shipping.toFixed(2)}</span>
               </div>
               <div className="mt-3 flex justify-between gap-4 border-t border-border pt-3 font-bold">

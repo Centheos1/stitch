@@ -1,7 +1,13 @@
 import { z } from "zod";
 
 export const DEFAULT_INVOICE_TERMS_DAYS = 14;
-export const invoiceTermsSchema = z.object({ days: z.number().int().min(0).max(365) });
+export const invoiceTermsSchema = z.object({
+  days: z.number().int().min(0).max(365),
+  paymentDetails: z.string().trim().max(1000, "Use at most 1,000 characters for payment details.").optional(),
+});
+export type InvoiceTerms = z.infer<typeof invoiceTermsSchema>;
+export const invoiceNumberSchema = z.string().regex(/^\d{6}$/);
+export const invoiceDraftSettingsSchema = invoiceTermsSchema.extend({ invoiceNumber: invoiceNumberSchema });
 
 const sydneyDate = new Intl.DateTimeFormat("en-AU", {
   day: "numeric", month: "numeric", year: "numeric", timeZone: "Australia/Sydney",

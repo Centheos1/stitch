@@ -6,9 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/layout/BackLink";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
@@ -16,14 +18,23 @@ import { australianPostcodeSchema, FLAT_SHIPPING_RATE_CENTS, freeDeliverySuburbs
 import { orderQuoteResponse, type OrderInput } from "@shared/routes";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
+const australianStates = ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"];
+
 const checkoutSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Valid email is required"),
-  address: z.string().min(10, "Full address is required"),
+  street: z.string().trim().min(1, "Street address is required").max(120),
+  unit: z.string().trim().max(80),
+  suburb: z.string().trim().min(1, "Suburb or town is required").max(80),
+  state: z.string().refine((value) => australianStates.includes(value), "Select a state or territory."),
   shippingPostcode: australianPostcodeSchema,
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
+
+function formatShippingAddress({ street, unit, suburb, state }: CheckoutFormData) {
+  return [unit.trim(), street.trim(), `${suburb.trim()} ${state}`, "Australia"].filter(Boolean).join(", ");
+}
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -32,12 +43,7 @@ function formatPrice(cents: number) {
 function CheckoutBackLink({ href, label }: { href: string; label: string }) {
   return (
     <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
-      <Button asChild variant="ghost">
-        <Link href={href} aria-label={label}>
-          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
-          Back
-        </Link>
-      </Button>
+      <BackLink href={href} label={label} />
     </div>
   );
 }
@@ -100,7 +106,7 @@ export default function Checkout() {
 
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: { name: "", email: "", address: "", shippingPostcode: "" },
+    defaultValues: { name: "", email: "", street: "", unit: "", suburb: "", state: "", shippingPostcode: "" },
   });
 
   const orderItems = items.map((item) => ({
@@ -109,7 +115,7 @@ export default function Checkout() {
     options: item.options ?? [],
   }));
   const values = form.watch();
-  const quoteKey = (data: CheckoutFormData) => JSON.stringify([data.address, data.shippingPostcode.trim(), orderItems]);
+  const quoteKey = (data: CheckoutFormData) => JSON.stringify([formatShippingAddress(data), data.shippingPostcode.trim(), orderItems]);
   const rate = quoted?.key === quoteKey(values) ? quoted.rate : undefined;
   const busy = form.formState.isSubmitting || createOrder.isPending || shippingQuote.isPending;
 
@@ -143,7 +149,13 @@ export default function Checkout() {
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (createOrder.isPending || shippingQuote.isPending) return;
-    const input = { ...data, items: orderItems };
+    const input = {
+      name: data.name,
+      email: data.email,
+      address: formatShippingAddress(data),
+      shippingPostcode: data.shippingPostcode,
+      items: orderItems,
+    };
     try {
       const currentRate = rate ?? await shippingQuote.mutateAsync(input);
       if (!rate && (currentRate.totalAmount !== subtotal + FLAT_SHIPPING_RATE_CENTS ||
@@ -248,33 +260,68 @@ export default function Checkout() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base font-semibold">Shipping Address</FormLabel>
-                    <FormControl>
-                      <Input placeholder="123 Craft Street, Sydney NSW, Australia" autoComplete="street-address" className="h-14 rounded-xl text-lg bg-background" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="shippingPostcode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Australian delivery postcode</FormLabel>
-                    <FormControl>
-                      <Input inputMode="numeric" autoComplete="postal-code" maxLength={4} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <fieldset className="space-y-4">
+                <legend className="mb-2 text-base font-semibold">Shipping address</legend>
+                {([
+                  { name: "street", label: "Street address", placeholder: "123 Craft Street", autoComplete: "address-line1", maxLength: 120 },
+                  { name: "unit", label: "Unit or apartment (optional)", placeholder: "Unit 4", autoComplete: "address-line2", maxLength: 80 },
+                  { name: "suburb", label: "Suburb or town", placeholder: "Sydney", autoComplete: "address-level2", maxLength: 80 },
+                ] as const).map(({ name, label, placeholder, autoComplete, maxLength }) => (
+                  <FormField
+                    key={name}
+                    control={form.control}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={placeholder} autoComplete={autoComplete} maxLength={maxLength}
+                            className="h-14 rounded-xl bg-background text-lg" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State or territory</FormLabel>
+                      <Select name={field.name} value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger ref={field.ref} onBlur={field.onBlur} className="h-14 rounded-xl text-base md:text-sm">
+                            <SelectValue placeholder="Select a state or territory" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-background">
+                          {australianStates.map((state) => (
+                            <SelectItem key={state} value={state} className="focus:bg-[var(--stitch-green)] focus:text-foreground">
+                              {state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="shippingPostcode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Australian delivery postcode</FormLabel>
+                      <FormControl>
+                        <Input inputMode="numeric" autoComplete="postal-code" maxLength={4}
+                          className="h-14 rounded-xl bg-background text-lg" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </fieldset>
 
               <Button
                 type="submit"

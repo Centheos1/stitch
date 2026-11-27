@@ -1,4 +1,4 @@
-import { invoiceTermsSchema } from "@shared/invoice-terms";
+import { invoiceDraftSettingsSchema } from "@shared/invoice-terms";
 import { createInvoiceDraft, type InvoiceDraft } from "./payment-invoice";
 import { useEffect, useState } from "react";
 import {
@@ -102,10 +102,12 @@ export function OrdersPanel({ onReviewInvoice }: { onReviewInvoice: (draft: Invo
     setSending(true);
     setError("");
     try {
-      const terms = invoiceTermsSchema.parse(await readJson("/api/admin/invoice-terms"));
-      onReviewInvoice(createInvoiceDraft(bundle.order, bundle.items, terms.days));
-    } catch {
-      setError("Could not load invoice settings. Please try again.");
+      const terms = invoiceDraftSettingsSchema.parse(await readJson(
+        `/api/admin/orders/${encodeURIComponent(bundle.order.id)}/invoice-draft`, "POST",
+      ));
+      onReviewInvoice(createInvoiceDraft(bundle.order, bundle.items, terms));
+    } catch (error) {
+      setError(error instanceof Error ? error.message.replace(/^\d+:\s*/, "") : "Could not prepare the invoice.");
     } finally {
       setSending(false);
     }

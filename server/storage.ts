@@ -1,5 +1,7 @@
-import { DEFAULT_INVOICE_TERMS_DAYS, invoiceTermsSchema } from "@shared/invoice-terms";
+import { DEFAULT_INVOICE_TERMS_DAYS, invoiceNumberSchema, invoiceTermsSchema, type InvoiceTerms } from "@shared/invoice-terms";
 import { randomUUID } from "crypto";
+import { setTimeout as delay } from "node:timers/promises";
+import { TransactionCanceledException } from "@aws-sdk/client-dynamodb";
 import {
   BatchGetCommand,
   GetCommand,
@@ -33,6 +35,7 @@ import type { z } from "zod";
 
 type QuoteInput = z.infer<typeof orderQuoteInput>;
 type ShippingSettings = z.infer<typeof shippingSettingsSchema>;
+const invoiceCounterKey = { pk: "SETTINGS#INVOICE", sk: "COUNTER" };
 const invoiceTermsKey = { pk: "SETTINGS#INVOICE", sk: "META" };
 const shippingSettingsKey = { pk: "SETTINGS#SHIPPING", sk: "META" };
 
@@ -55,7 +58,7 @@ export interface IStorage {
   quoteOrder(input: QuoteInput): Promise<{ subtotal: number; unitPrices: number[]; shippingAmount: number; totalAmount: number }>;
   createOrder(input: QuoteInput & { expectedTotal: number; expectedShipping: number }): Promise<{ order: Order; items: OrderItem[] }>;
   listOrders(): Promise<Order[]>;
-  getOrder(id: string): Promise<{ order: Order; items: OrderItem[]; messages: OrderMessage[] } | undefined>;
+  getOrder(id: string, options?: { includeMakingTimes?: boolean }): Promise<{ order: Order; items: OrderItem[]; messages: OrderMessage[] } | undefined>;
   markOrderRead(id: string): Promise<void>;
   saveOrderMessage(orderId: string | undefined, message: OrderMessage): Promise<void>;
   setOrderStatus(id: string, status: string, paymentRequestAmount?: number): Promise<Order | undefined>;
@@ -326,13 +329,71 @@ export class DynamoStorage implements IStorage {
     );
   }
 
-  async getInvoiceTerms() {
+  async getInvoiceTerms(): Promise<InvoiceTerms> {
     const { Item } = await doc.send(new GetCommand({ TableName: tableName, Key: invoiceTermsKey, ConsistentRead: true }));
     return Item ? invoiceTermsSchema.parse(Item) : { days: DEFAULT_INVOICE_TERMS_DAYS };
   }
 
-  async setInvoiceTerms(terms: { days: number }) {
-    await doc.send(new PutCommand({ TableName: tableName, Item: { ...invoiceTermsKey, ...terms } }));
+  async setInvoiceTerms({ days, paymentDetails }: InvoiceTerms): Promise<InvoiceTerms> {
+    const values = { ":days": days, ...(paymentDetails === undefined ? {} : { ":details": paymentDetails }) };
+    const { Attributes } = await doc.send(new UpdateCommand({
+      TableName: tableName,
+      Key: invoiceTermsKey,
+      UpdateExpression: paymentDetails === undefined ? "SET days = :days" : "SET days = :days, paymentDetails = :details",
+      ExpressionAttributeValues: values,
+      ReturnValues: "ALL_NEW",
+    }));
+    return invoiceTermsSchema.parse(Attributes);
+  }
+
+  async reserveInvoiceNumber(orderId: string): Promise<string | undefined> {
+    const orderKey = { pk: `ORDER#${orderId}`, sk: "META" };
+    const invoiceKey = { pk: orderKey.pk, sk: "INVOICE" };
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const { Item: invoice } = await doc.send(new GetCommand({
+        TableName: tableName, Key: invoiceKey, ConsistentRead: true,
+      }));
+      if (invoice) return invoiceNumberSchema.parse(invoice.invoiceNumber);
+
+      const { Item: counter } = await doc.send(new GetCommand({
+        TableName: tableName, Key: invoiceCounterKey, ConsistentRead: true,
+      }));
+      const previous = counter?.lastNumber ?? 0;
+      if (!Number.isSafeInteger(previous) || previous < 0) throw new Error("Invoice counter is invalid.");
+      if (previous >= 999_999) throw new OrderRequestError("All six-digit invoice numbers have been used.", 409);
+      const next = previous + 1;
+      const invoiceNumber = String(next).padStart(6, "0");
+
+      try {
+        await doc.send(new TransactWriteCommand({
+          TransactItems: [
+            { ConditionCheck: {
+              TableName: tableName, Key: orderKey, ConditionExpression: "attribute_exists(pk)",
+            } },
+            { Put: {
+              TableName: tableName, Item: { ...invoiceKey, invoiceNumber },
+              ConditionExpression: "attribute_not_exists(pk)",
+            } },
+            { Update: {
+              TableName: tableName, Key: invoiceCounterKey,
+              UpdateExpression: "SET lastNumber = :next",
+              ConditionExpression: previous === 0
+                ? "attribute_not_exists(lastNumber) OR lastNumber = :previous"
+                : "lastNumber = :previous",
+              ExpressionAttributeValues: { ":previous": previous, ":next": next },
+            } },
+          ],
+        }));
+        return invoiceNumber;
+      } catch (error) {
+        if (!(error instanceof TransactionCanceledException)) throw error;
+        const reasons = error.CancellationReasons ?? [];
+        if (reasons[0]?.Code === "ConditionalCheckFailed") return undefined;
+        if (!reasons.some(({ Code }) => Code === "TransactionConflict" || Code === "ConditionalCheckFailed")) throw error;
+        await delay(10 * (attempt + 1) + Math.random() * 20);
+      }
+    }
+    throw new OrderRequestError("Invoice numbering is busy. Please reopen the draft.", 409);
   }
 
   async getShippingSettings(): Promise<ShippingSettings> {
@@ -399,6 +460,7 @@ export class DynamoStorage implements IStorage {
         orderId: "",
         productId: product.id,
         productName: product.name,
+        timeToMake: product.timeToMake ?? "",
         quantity: requested.quantity,
         unitPrice,
         options: selected,
@@ -474,16 +536,24 @@ export class DynamoStorage implements IStorage {
     return orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  async getOrder(id: string): Promise<{ order: Order; items: OrderItem[]; messages: OrderMessage[] } | undefined> {
+  async getOrder(id: string, { includeMakingTimes = false } = {}): Promise<{ order: Order; items: OrderItem[]; messages: OrderMessage[] } | undefined> {
     const rows = await queryAll({
       KeyConditionExpression: "pk = :pk",
       ExpressionAttributeValues: { ":pk": `ORDER#${id}` },
     });
     const meta = rows.find((row) => row.sk === "META");
     if (!meta) return undefined;
+    const items = rows.filter((row) => String(row.sk).startsWith("ITEM#")).map(toOrderItem);
+    if (includeMakingTimes) {
+      const products = await this.batchGet(items.filter((item) => item.timeToMake === undefined).map((item) => item.productId));
+      const makingTimes = new Map(products.map((product) => [product.id, product.timeToMake]));
+      for (const item of items) {
+        item.timeToMake ??= makingTimes.get(item.productId);
+      }
+    }
     return {
       order: toOrder(meta),
-      items: rows.filter((row) => String(row.sk).startsWith("ITEM#")).map(toOrderItem),
+      items,
       messages: rows
         .filter((row) => String(row.sk).startsWith("MSG#"))
         .map(toMessage)

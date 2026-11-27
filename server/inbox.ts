@@ -75,7 +75,7 @@ async function loadAttachments(files: { key: string; filename: string; contentTy
 }
 
 async function quoteOriginal(message: OrderMessage): Promise<{ text: string; html: string }> {
-  const originalHtml = message.htmlKey ? await readHtml(message.htmlKey) : textToHtml(message.text);
+  const originalHtml = message.htmlKey ? await readHtml(message.htmlKey) : message.htmlBody || textToHtml(message.text);
   const quotedText = message.text.split("\n").map((line) => `> ${line}`).join("\n");
   return {
     text: quotedText,
@@ -192,6 +192,13 @@ export async function sendInboxMail(input: {
     content: await readBytes(file.key),
   })));
 
+  const id = randomUUID();
+  const htmlKey = await putHtml(id, html);
+  const htmlBody = htmlKey ? undefined : html;
+  if (htmlBody && Buffer.byteLength(htmlBody) + Buffer.byteLength(text) > 300 * 1024) {
+    throw new MailInputError("This message is too large to save without mail storage configured.");
+  }
+
   const delivery = await deliver({
     from,
     to,
@@ -208,8 +215,6 @@ export async function sendInboxMail(input: {
       : payload,
   });
 
-  const id = randomUUID();
-  const htmlKey = await putHtml(id, html);
   const message: OrderMessage = {
     id,
     threadId,
@@ -222,6 +227,7 @@ export async function sendInboxMail(input: {
     subject,
     text,
     htmlKey,
+    htmlBody,
     attachments: copies,
     messageId: delivery.messageId,
     delivered: delivery.delivered,
@@ -239,7 +245,7 @@ export async function sendInboxMail(input: {
 }
 
 export async function messageHtml(message: OrderMessage): Promise<string> {
-  const html = message.htmlKey ? await readHtml(message.htmlKey) : textToHtml(message.text);
+  const html = message.htmlKey ? await readHtml(message.htmlKey) : message.htmlBody || textToHtml(message.text);
   return renderMailHtml(html, message.attachments ?? []);
 }
 

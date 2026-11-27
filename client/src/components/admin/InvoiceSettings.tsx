@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invoiceTermsSchema } from "@shared/invoice-terms";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -15,15 +16,18 @@ function InvoiceTermsForm() {
     queryFn: async () => invoiceTermsSchema.parse(await (await apiRequest("GET", path)).json()),
   });
   const [draft, setDraft] = useState<string>();
+  const [paymentDraft, setPaymentDraft] = useState<string>();
+  const paymentDetails = paymentDraft ?? settings.data?.paymentDetails ?? "";
   const days = draft ?? settings.data?.days.toString() ?? "";
   const save = useMutation({
     mutationFn: async () => {
-      const terms = invoiceTermsSchema.parse({ days: Number(days) });
+      const terms = invoiceTermsSchema.parse({ days: Number(days), paymentDetails: paymentDraft });
       return invoiceTermsSchema.parse(await (await apiRequest("PUT", path, terms)).json());
     },
     onSuccess: (terms) => {
       queryClient.setQueryData([path], terms);
       setDraft(undefined);
+      setPaymentDraft(undefined);
     },
   });
 
@@ -37,9 +41,15 @@ function InvoiceTermsForm() {
         <Input type="number" min={0} max={365} step={1} required value={days} disabled={save.isPending}
           onChange={(event) => { setDraft(event.target.value); save.reset(); }} />
       </label>
-      <Button type="submit" disabled={save.isPending}>Save payment terms</Button>
-      {save.isSuccess && <p role="status">Payment terms saved.</p>}
-      {save.isError && <p role="alert">Could not save payment terms.</p>}
+      <label className="block space-y-1">
+        <span>Payment details</span>
+        <Textarea rows={4} maxLength={1000} value={paymentDetails} disabled={save.isPending}
+          placeholder="BSB and account number, or other payment instructions"
+          onChange={(event) => { setPaymentDraft(event.target.value); save.reset(); }} />
+      </label>
+      <Button type="submit" disabled={save.isPending}>Save invoice settings</Button>
+      {save.isSuccess && <p role="status">Invoice settings saved.</p>}
+      {save.isError && <p role="alert">Could not save invoice settings.</p>}
     </form>
   );
 }
@@ -53,7 +63,7 @@ export function InvoiceSettings() {
       <DialogContent className="max-w-sm rounded-2xl">
         <DialogHeader>
           <DialogTitle>Invoice settings</DialogTitle>
-          <DialogDescription>Set how many calendar days customers have to pay after you send an invoice.</DialogDescription>
+          <DialogDescription>Set the payment terms and instructions added to new invoices.</DialogDescription>
         </DialogHeader>
         <InvoiceTermsForm />
       </DialogContent>
